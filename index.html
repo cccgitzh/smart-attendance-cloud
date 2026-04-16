@@ -940,10 +940,13 @@ class AttendanceApp {
             try {
                 const data = JSON.parse(ev.target.result);
                 if (data.employees) { 
-                    this.saveHistory(); this.state = data; 
-                    this.cloudVersion = null; // 强制覆盖云端版本号锁
+                    this.saveHistory(); 
+                    this.state = data; 
+                    // 【修复】：去掉破坏版本号的代码，继续使用系统刚加载时获取的合法版本号进行保存
                     this._saveData(); 
-                    this.updateDate(); this.renderAll(); this.showToast('✅ 数据恢复并已强行覆盖云端'); 
+                    this.updateDate(); 
+                    this.renderAll(); 
+                    this.showToast('✅ 数据恢复成功并已安全同步云端'); 
                 }
             } catch(err) { this.showToast('❌ 解析失败', 'danger'); }
         }; 

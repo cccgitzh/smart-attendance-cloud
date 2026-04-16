@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业智能考勤系统 - Pro 云端同步版</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* 保持你原有的顶级 SaaS 视觉色彩与规范，此处代码未删减 */
+        :root {
+            --primary: #4F46E5; --primary-hover: #4338CA; --primary-light: #EEF2FF;
+            --success: #059669; --success-bg: #D1FAE5; --warning: #D97706;
+            --danger: #DC2626; --danger-bg: #FEE2E2; --half: #0EA5E9; --half-bg: #E0F2FE;
+            --rest: #64748B; --rest-bg: #F1F5F9; --text-main: #0F172A; --text-regular: #334155;
+            --text-muted: #64748B; --bg-body: #F4F5F7; --bg-surface: #FFFFFF; --bg-hover: #F8FAFC;
+            --border: #E2E8F0; --border-heavy: #CBD5E1;
+            --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05); --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+            --shadow-float: 0 20px 25px -5px rgba(15, 23, 42, 0.15);
+            --radius-md: 8px; --radius-lg: 14px; --w-idx: 50px; --w-name: 90px; 
+            --w-dept: 100px; --w-day: 42px; --w-stat: 60px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); padding: 24px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        ::-webkit-scrollbar { width: 8px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+        .container { max-width: 1750px; margin: 0 auto; background: var(--bg-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 28px; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .header-title { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;}
+        .sync-status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--bg-hover); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; transition: 0.3s;}
+        
+        .month-switcher { display: flex; align-items: center; background: var(--bg-hover); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+        .month-switcher h2 { font-size: 15px; font-weight: 700; color: var(--text-main); min-width: 90px; text-align: center; }
+        .btn-icon { background: transparent; border: none; padding: 6px 12px; cursor: pointer; border-radius: 6px; color: var(--text-muted); transition: 0.2s; font-weight: bold;}
+        
+        .dashboard-wrapper { display: flex; gap: 24px; margin-bottom: 24px; align-items: stretch; }
+        .dashboard-cards { display: flex; flex-direction: column; gap: 16px; width: 280px; flex-shrink: 0; }
+        .stat-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm); transition: 0.2s;}
+        .stat-card:hover { border-color: var(--border-heavy); box-shadow: var(--shadow-md); }
+        .stat-value { font-size: 32px; font-weight: 800; color: var(--text-main); line-height: 1.1; letter-spacing: -1px;}
+        .stat-label { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-top: 6px; }
+        
+        .summary-table-container { flex-grow: 1; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; overflow: hidden; }
+        .summary-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #F8FAFC; border-bottom: 1px solid var(--border); }
+        .summary-header h4 { font-size: 15px; color: var(--text-main); font-weight: 700; }
+        .summary-table-body { padding: 0; overflow-y: auto; max-height: 260px; }
+        .basic-table { width: 100%; text-align: left; border-collapse: collapse; }
+        .basic-table th, .basic-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        .basic-table th { background: #F8FAFC; color: var(--text-muted); font-weight: 600; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border); font-size: 12px; text-transform: uppercase;}
+        .basic-table tr:hover td { background: var(--bg-hover); }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { padding: 6px 16px; background: var(--bg-body); color: var(--text-muted); border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; border: 1px solid transparent; }
+        .tab:hover { background: var(--primary-light); color: var(--primary); }
+        .tab.active { background: var(--primary-light); color: var(--primary); font-weight: 700; border-color: #C7D2FE;}
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; background: var(--bg-body); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+        .btn { padding: 8px 14px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-main); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); }
+        .btn-primary { background: var(--text-main); color: #fff; border-color: var(--text-main); }
+        .btn-brand { color: var(--primary); border-color: #C7D2FE; background: #EFF6FF; }
+        .btn:hover, .btn-icon:hover { border-color: #10B981 !important; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important; transform: translateY(-1px);}
+        .btn-primary:hover { background: #10B981 !important; color: #fff !important; }
+
+        .divider { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+        input, select, textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; transition: 0.2s; background: var(--bg-surface); }
+
+        .table-wrapper { overflow: auto; max-height: 48vh; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); position: relative; background: var(--bg-surface); }
+        table { border-collapse: separate; border-spacing: 0; width: max-content; table-layout: fixed; }
+        th, td { padding: 6px 4px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-surface); transition: background 0.1s; }
+        tbody tr:nth-child(even) td { background-color: #FAFAFC; }
+        tbody tr:hover td { background-color: var(--primary-light) !important; }
+        td.hover-col, th.hover-col { background-color: var(--primary-light) !important; }
+
+        .col-idx { width: var(--w-idx); min-width: var(--w-idx); max-width: var(--w-idx); color: var(--text-muted); font-weight: 500;}
+        .col-name { width: var(--w-name); min-width: var(--w-name); max-width: var(--w-name); }
+        .col-dept { width: var(--w-dept); min-width: var(--w-dept); max-width: var(--w-dept); }
+        .col-day { width: var(--w-day); min-width: var(--w-day); max-width: var(--w-day); padding: 4px 0; }
+        .col-stat { width: var(--w-stat); min-width: var(--w-stat); max-width: var(--w-stat); font-weight: 700;}
+
+        thead th { background: #F8FAFC; color: var(--text-muted); font-weight: 600; font-size: 12px; }
+        thead tr:nth-child(1) th { position: sticky; top: 0; height: 36px; z-index: 40; box-shadow: 0 1px 0 var(--border); }
+        thead tr:nth-child(2) th { position: sticky; top: 36px; height: 36px; z-index: 40; border-bottom: 1px solid var(--border-heavy); }
+        thead tr:nth-child(1) th.col-idx, thead tr:nth-child(1) th.col-name, thead tr:nth-child(1) th.col-dept,
+        thead tr:nth-child(2) th.col-idx, thead tr:nth-child(2) th.col-name, thead tr:nth-child(2) th.col-dept { z-index: 50; background: #F1F5F9; }
+        tbody td.col-idx, tbody td.col-name, tbody td.col-dept { position: sticky; z-index: 30; }
+        tbody td.col-idx { left: 0; border-left: none; }
+        tbody td.col-name { left: var(--w-idx); }
+        tbody td.col-dept { left: 140px; border-right: 2px solid var(--border-heavy); } 
+
+        .bg-weekend { background: #FFFBEB !important; color: #B45309; }
+        .bg-holiday { background: var(--danger-bg) !important; color: #B91C1C; }
+        .cell-status { cursor: pointer; user-select: none; position: relative; }
+        .cell-disabled { background: var(--bg-hover) !important; color: var(--border-heavy) !important; cursor: not-allowed; user-select: none; font-size: 12px;}
+        .cell-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); margin: 0 auto; }
+        
+        .badge-att { background: var(--success-bg); color: var(--success); box-shadow: inset 0 0 0 1px rgba(5, 150, 105, 0.15); }
+        .badge-att svg { width: 14px; height: 14px; stroke-width: 3.5; }
+        .badge-rst { background: #FDE047; color: #000; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); font-size: 12px; font-weight: 700; }
+        .badge-hlf { background: var(--half-bg); color: var(--half); box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.15); font-size: 12px; font-weight: 700; }
+        .badge-join { background: #EDE9FE; color: #7C3AED; box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.2); font-size: 12px; font-weight: 700; }
+        .badge-leave { background: #FEE2E2; color: #DC2626; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.2); font-size: 12px; font-weight: 700; }
+
+        .cell-status:hover .cell-badge { transform: scale(1.15); }
+        .cell-status:hover .badge-att { background: var(--success); color: #FFF; box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3); }
+        .cell-status:hover .badge-rst { background: #FACC15; color: #000; box-shadow: 0 4px 8px rgba(250, 204, 21, 0.4); }
+        .cell-status:hover .badge-hlf { background: var(--half); color: #FFF; box-shadow: 0 4px 8px rgba(14, 165, 233, 0.4); }
+        .cell-status:hover .badge-join { background: #7C3AED; color: #FFF; box-shadow: 0 4px 8px rgba(124, 58, 237, 0.4); }
+        .cell-status:hover .badge-leave { background: #DC2626; color: #FFF; box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4); }
+
+        .cell-status.drag-selected .cell-badge { background: var(--primary-light); color: var(--primary); box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--primary); transform: scale(0.9); }
+        .has-note::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; background: var(--warning); border-radius: 50%; z-index: 5;}
+        .input-seamless { width: 100%; border: none; background: transparent; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-main); padding: 4px; outline: none; border-radius: 4px;}
+        .input-seamless:focus { background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--primary); }
+
+        #quickActionBar { position: fixed; background: #1E293B; padding: 6px; border-radius: 8px; box-shadow: var(--shadow-float); display: none; gap: 6px; z-index: 9999; transform: translate(-50%, -10px); border: 1px solid rgba(255,255,255,0.1); }
+        #quickActionBar button { background: transparent; border: none; color: #FFF; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.15s; }
+        #quickActionBar button:hover { background: rgba(255,255,255,0.15); box-shadow: none !important; border-color: transparent !important; }
+
+        #contextMenu { position: fixed; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); box-shadow: var(--shadow-float); border-radius: 8px; padding: 6px; min-width: 150px; display: none; z-index: 100000; }
+        #contextMenu div { padding: 8px 12px; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 4px; color: var(--text-main); transition: 0.1s;}
+        #contextMenu div:hover { background: var(--bg-hover); color: var(--primary); font-weight: 600; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; }
+        .modal { background: var(--bg-surface); padding: 32px; border-radius: 16px; width: 420px; box-shadow: var(--shadow-float); border: 1px solid var(--border); animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal h3 { margin-bottom: 24px; font-size: 18px; font-weight: 700; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--text-regular); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 28px; }
+
+        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--text-main); color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 600; z-index: 100001; transition: top 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: var(--shadow-float); display: flex; align-items: center; gap: 8px;}
+        .toast.show { top: 32px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="header-title">
+            🏢 智能考勤系统 Pro <span style="font-size:12px; color:var(--primary); background:var(--primary-light); padding:2px 8px; border-radius:10px;">Cloud</span>
+            <div id="syncStatus" class="sync-status" style="color: var(--success);">🟡 正在初始化云端...</div>
+        </div>
+        <div class="month-switcher">
+            <button class="btn-icon" data-action="prevMonth">◀</button>
+            <h2 id="currentMonthDisplay">--年--月</h2>
+            <button class="btn-icon" data-action="nextMonth">▶</button>
+            <input type="month" id="monthPicker" style="border:none; padding:0; height:0; width:0; visibility:hidden;">
+            <button class="btn-icon" onclick="document.getElementById('monthPicker').showPicker()" title="选择月份">📅</button>
+        </div>
+    </div>
+
+    <div class="dashboard-wrapper">
+        <div class="dashboard-cards">
+            <div class="stat-card">
+                <div class="stat-value" id="sumTotalEmp">0</div>
+                <div class="stat-label">当月在职人数</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid var(--primary);">
+                <div class="stat-value" id="sumTotalAttend" style="color: var(--primary);">0</div>
+                <div class="stat-label">累计出勤人次</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid var(--success);">
+                <div class="stat-value" id="sumAttendRate" style="color: var(--success);">0%</div>
+                <div class="stat-label">全局实际出勤率</div>
+            </div>
+        </div>
+        
+        <div class="summary-table-container">
+            <div class="summary-header">
+                <h4 id="summaryTitle">个人考勤汇总</h4>
+                <button class="btn btn-outline" data-action="exportSummaryExcel" style="padding: 6px 12px; font-size: 12px; box-shadow: none;">导出汇总表</button>
+            </div>
+            <div class="summary-table-body">
+                <table class="basic-table">
+                    <thead><tr><th>序号</th><th>员工姓名</th><th>所属部门</th><th>出勤(天)</th><th>休息(天)</th></tr></thead>
+                    <tbody id="summaryTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs" id="deptTabs"></div>
+
+    <div class="toolbar">
+        <button class="btn btn-primary" data-action="openEmpModal">＋ 添加员工</button>
+        <button class="btn btn-outline" data-action="openDeptModal">🏢 部门管理</button>
+        <div class="divider"></div>
+        <button class="btn btn-brand" data-action="smartSchedule">✨ 智能排班</button>
+        <button class="btn btn-outline" data-action="batchSetAttend">✅ 全出勤</button>
+        <button class="btn btn-outline" data-action="batchSetWorkdays">💼 仅工作日</button>
+        <div class="divider"></div>
+        <button class="btn btn-outline" data-action="undo" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
+        <div class="divider"></div>
+        <button class="btn btn-outline" data-action="exportExcel">📥 导出明细</button>
+        <button class="btn btn-outline" data-action="backupData" title="本地手动备份">💾 本地备份</button>
+        <input type="file" id="restoreFile" accept=".json" style="display:none">
+        <button class="btn btn-outline" data-action="triggerRestore" title="从文件恢复">📂 强制覆盖</button>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px;">
+        <h3 id="mainTableTitle" style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">--年--月 排班明细</h3>
+        <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;">
+            💡 提示：按住左键滑动可批量排班，十字辅助线已开启
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="mainTable">
+            <thead id="mainThead"></thead>
+            <tbody id="mainTbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="quickActionBar">
+    <button style="color: #6EE7B7;" data-action="quickSetAttend">✅ 出勤</button>
+    <button style="color: #0EA5E9;" data-action="quickSetHalf">🌗 半天</button>
+    <button style="color: #FACC15;" data-action="quickSetRest">😴 休息</button>
+    <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
+    <button style="color: #F87171;" data-action="quickCancel">❌ 取消</button>
+</div>
+
+<div id="contextMenu">
+    <div data-action="ctxMoveUp">⬆️ 上移一名</div>
+    <div data-action="ctxMoveDown">⬇️ 下移一名</div>
+    <div style="height: 1px; background: var(--border-light); margin: 4px 0;"></div>
+    <div data-action="ctxAddNote">📝 单日备注说明</div>
+    <div data-action="ctxSetHalf">🌗 设为休息半天(0.5)</div>
+    <div style="height: 1px; background: var(--border-light); margin: 4px 0;"></div>
+    <div style="color: #7C3AED;" data-action="ctxSetJoin">🟣 设为入职日 (并标为'入')</div>
+    <div style="color: var(--danger);" data-action="ctxSetLeave">🔴 设为离职日 (并标为'离')</div>
+    <div style="height: 1px; background: var(--border-light); margin: 4px 0;"></div>
+    <div data-action="ctxBatchAttend">✅ 设全月出勤</div>
+    <div data-action="ctxBatchRest">😴 设全月休息</div>
+    <div style="height: 1px; background: var(--border-light); margin: 4px 0;"></div>
+    <div style="color: var(--primary);" data-action="ctxEditEmp">⚙️ 调整生命周期</div>
+</div>
+
+<div class="modal-overlay" id="empModal">
+    <div class="modal">
+        <h3 id="empModalTitle">员工资料配置</h3>
+        <input type="hidden" id="empId">
+        <div class="form-group"><label>真实姓名</label><input type="text" id="empName" placeholder="例如：张三" autocomplete="off"></div>
+        <div class="form-group"><label>所属部门</label><select id="empDept"></select></div>
+        <div style="display:flex; gap:12px;">
+            <div class="form-group" style="flex:1;"><label>入职日期</label><input type="date" id="empJoinDate"></div>
+            <div class="form-group" style="flex:1;"><label>离职日期</label><input type="date" id="empLeaveDate"></div>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+            <button class="btn btn-outline" style="color: var(--danger); border-color: transparent;" id="empDeleteBtn" data-action="deleteEmp">彻底删除</button>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline" data-action="closeEmpModal">取消</button>
+                <button class="btn btn-primary" data-action="saveEmp">确认保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deptModal">
+    <div class="modal">
+        <h3>部门配置库</h3>
+        <div class="form-group" style="display: flex; gap: 8px;">
+            <input type="text" id="newDeptName" placeholder="输入新部门" autocomplete="off">
+            <button class="btn btn-primary" data-action="addDept">新增</button>
+        </div>
+        <div id="deptList" style="max-height: 200px; overflow-y: auto; margin-top: 12px; border-top: 1px solid var(--border);"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" data-action="closeDeptModal" style="width:100%;">完成</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="noteModal">
+    <div class="modal">
+        <h3>考勤备注</h3>
+        <div class="form-group"><textarea id="noteText" rows="4" style="width:100%;" placeholder="填写说明..."></textarea></div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" data-action="closeNoteModal">取消</button>
+            <button class="btn btn-primary" data-action="saveNote">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STATUS_MAP = {
+    '出勤': { icon: `<div class="cell-badge badge-att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>`, att: 1, rst: 0, text: '√' },
+    '休息': { icon: `<div class="cell-badge badge-rst">休</div>`, att: 0, rst: 1, text: '休' },
+    '半天': { icon: `<div class="cell-badge badge-hlf">半</div>`, att: 0.5, rst: 0.5, text: '0.5' },
+    '入':   { icon: `<div class="cell-badge badge-join">入</div>`, att: 1, rst: 0, text: '入' },
+    '离':   { icon: `<div class="cell-badge badge-leave">离</div>`, att: 0, rst: 0, text: '离' } 
+};
+
+const escapeHTML = (str) => {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+};
+
+class AttendanceApp {
+    constructor() {
+        this.CONFIG = {
+            BACKUP_KEY: 'attendance_v11_5_cloud_backup',
+            HOLIDAYS: new Set(['2024-01-01', '2024-02-10', '2024-02-11', '2024-02-12', '2024-02-13', '2024-02-14', '2024-02-15', '2024-02-16', '2024-02-17', '2024-04-04', '2024-05-01', '2024-05-02', '2024-05-03', '2024-06-10', '2024-09-17', '2024-10-01', '2024-10-02', '2024-10-03'])
+        };
+        // 关键改动：后端 API 相对路径
+        this.API_URL = '/api'; 
+
+        this.state = { yearMonth: '', currentFilterDept: '全部', departments: ['默认部门'], employees: [], records: {}, cachedDays: [] };
+        this.historyStack = [];
+        this.hoveredDateStr = null; 
+        this.hasUnexportedChanges = false; 
+        
+        this.DOM = {};
+        this.ctxTarget = { empId: null, dateStr: null, cellElem: null };
+        this.dragState = { isDragging: false, selectedCells: new Set() };
+        
+        this.debouncedSaveAndRender = this.debounce(() => { this._saveData(); this.recalcGlobalStats(); }, 400);
+    }
+
+    async init() { 
+        this.cacheDOM(); 
+        await this.loadData(); // 等待云端数据
+        this.performDataHealthCheck(); 
+        this.initDate(); 
+        this.bindEvents(); 
+        this.renderAll(); 
+    }
+
+    cacheDOM() {
+        const ids = ['currentMonthDisplay', 'monthPicker', 'deptTabs', 'sumTotalEmp', 'sumTotalAttend', 'sumAttendRate', 'mainThead', 'mainTbody', 'summaryTbody', 'quickActionBar', 'contextMenu', 'summaryTitle', 'mainTableTitle', 'syncStatus'];
+        ids.forEach(id => this.DOM[id] = document.getElementById(id));
+    }
+    
+    updateSyncStatus(text, color = 'var(--success)') {
+        if (this.DOM.syncStatus) {
+            this.DOM.syncStatus.innerText = text;
+            this.DOM.syncStatus.style.color = color;
+        }
+    }
+
+    saveHistory() {
+        this.historyStack.push(JSON.stringify(this.state));
+        if (this.historyStack.length > 30) this.historyStack.shift();
+        this.hasUnexportedChanges = true;
+    }
+
+    undo() {
+        if (this.historyStack.length === 0) return this.showToast('没有可撤销的操作', 'warning');
+        this.state = JSON.parse(this.historyStack.pop());
+        this.updateDate(); this.renderAll(); this._saveData();
+        this.showToast('↩️ 撤销成功');
+    }
+
+    performDataHealthCheck() {
+        const validEmpIds = new Set(this.state.employees.map(e => e.id));
+        let orphanedRemoved = 0, invalidFixed = 0;
+        Object.keys(this.state.records).forEach(key => {
+            const separatorIndex = key.indexOf('_');
+            const empId = key.substring(0, separatorIndex);
+            if (!validEmpIds.has(empId)) { delete this.state.records[key]; orphanedRemoved++; } 
+            else {
+                const rec = this.state.records[key];
+                if (!STATUS_MAP[rec.status]) { rec.status = '出勤'; invalidFixed++; }
+            }
+        });
+        if (orphanedRemoved > 0 || invalidFixed > 0) this._saveData(); 
+    }
+
+    isDateValidForEmp(emp, dateStr) {
+        if (emp.joinDate && dateStr < emp.joinDate) return false;
+        if (emp.leaveDate && dateStr > emp.leaveDate) return false; 
+        return true;
+    }
+
+    bindEvents() {
+        document.addEventListener('click', (e) => {
+            const act = e.target.closest('[data-action]');
+            if (act && typeof this[act.dataset.action] === 'function') this[act.dataset.action](e, act);
+            if (!e.target.closest('#contextMenu') && !e.target.closest('.cell-status')) this.closeContextMenu();
+            if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
+        });
+        document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); } });
+        window.addEventListener('beforeunload', (e) => { if (this.hasUnexportedChanges) { e.preventDefault(); e.returnValue = '有未导出的更改！'; } });
+        this.DOM.mainTbody.addEventListener('mousedown', this.onDragStart.bind(this));
+        this.DOM.mainTbody.addEventListener('mouseover', (e) => {
+            if (this.dragState.isDragging) { const cell = e.target.closest('.cell-status'); if (cell) this.selectDragCell(cell); }
+            const cell = e.target.closest('td.col-day');
+            if (cell) {
+                const date = cell.dataset.date;
+                if (date && this.hoveredDateStr !== date) {
+                    if (this.hoveredDateStr) this.clearColumnHighlight();
+                    this.hoveredDateStr = date;
+                    this.DOM.mainTbody.querySelectorAll(`td[data-date="${date}"]`).forEach(td => td.classList.add('hover-col'));
+                    this.DOM.mainThead.querySelectorAll(`th[data-date="${date}"]`).forEach(th => th.classList.add('hover-col'));
+                }
+            } else this.clearColumnHighlight();
+        });
+        this.DOM.mainTbody.addEventListener('mouseleave', () => this.clearColumnHighlight());
+        document.addEventListener('mouseup', this.onDragEnd.bind(this));
+        document.addEventListener('mouseleave', this.onDragEnd.bind(this));
+        window.addEventListener('blur', this.onDragEnd.bind(this));
+        this.DOM.mainTbody.addEventListener('contextmenu', this.onContextMenu.bind(this));
+        this.DOM.mainTbody.addEventListener('input', this.handleInputChanges.bind(this));
+        this.DOM.mainTbody.addEventListener('change', this.handleSelectChanges.bind(this)); 
+        this.DOM.monthPicker.addEventListener('change', (e) => { this.state.yearMonth = e.target.value; this.updateDate(); this.renderAll(); });
+        document.getElementById('restoreFile').addEventListener('change', this.restoreData.bind(this));
+    }
+
+    clearColumnHighlight() {
+        if (this.hoveredDateStr) {
+            this.DOM.mainTbody.querySelectorAll(`td[data-date="${this.hoveredDateStr}"]`).forEach(td => td.classList.remove('hover-col'));
+            this.DOM.mainThead.querySelectorAll(`th[data-date="${this.hoveredDateStr}"]`).forEach(th => th.classList.remove('hover-col'));
+            this.hoveredDateStr = null;
+        }
+    }
+
+    closeContextMenu() { this.DOM.contextMenu.style.display = 'none'; }
+
+    onDragStart(e) {
+        if (e.button !== 0) return; 
+        const cell = e.target.closest('.cell-status');
+        if (!cell) { this.hideQuickAction(); return; }
+        this.dragState.isDragging = true; this.clearDragSelection(); this.hideQuickAction(); this.selectDragCell(cell);
+    }
+
+    onDragEnd(e) {
+        if (!this.dragState.isDragging) return;
+        this.dragState.isDragging = false;
+        if (this.dragState.selectedCells.size > 1) {
+            this.DOM.quickActionBar.style.display = 'flex';
+            this.DOM.quickActionBar.style.left = `${e.clientX}px`;
+            this.DOM.quickActionBar.style.top = `${e.clientY - 20}px`;
+        } else if (this.dragState.selectedCells.size === 1) {
+            this.toggleSingleCell([...this.dragState.selectedCells][0]);
+            this.clearDragSelection();
+        }
+    }
+
+    selectDragCell(cell) { if (!this.dragState.selectedCells.has(cell)) { this.dragState.selectedCells.add(cell); cell.classList.add('drag-selected'); } }
+    clearDragSelection() { this.dragState.selectedCells.forEach(cell => cell.classList.remove('drag-selected')); this.dragState.selectedCells.clear(); }
+    hideQuickAction() { this.DOM.quickActionBar.style.display = 'none'; if (!this.dragState.isDragging) this.clearDragSelection(); }
+
+    quickSetAttend() { this.applyDragBatch('出勤'); }
+    quickSetRest() { this.applyDragBatch('休息'); }
+    quickSetHalf() { this.applyDragBatch('半天'); }
+    quickCancel() { this.hideQuickAction(); }
+    
+    applyDragBatch(status) {
+        this.saveHistory();
+        const targetState = STATUS_MAP[status];
+        let skipped = 0; const affectedRows = new Map(); 
+        this.dragState.selectedCells.forEach(cell => {
+            const { empId, date } = cell.dataset; const rec = this.getSafeRecord(empId, date);
+            if (rec.status === '入' || rec.status === '离') { skipped++; return; }
+            rec.status = status; cell.innerHTML = targetState.icon; affectedRows.set(empId, cell.closest('tr')); 
+        });
+        affectedRows.forEach((tr, empId) => this.updateRowStatsLocally(empId, tr));
+        this.debouncedSaveAndRender(); this.hideQuickAction(); 
+        this.showToast(skipped > 0 ? `批量设为${status} (跳过 ${skipped} 个保护状态)` : `批量设为${status}`);
+    }
+
+    toggleSingleCell(cell) {
+        const { empId, date } = cell.dataset; const rec = this.getSafeRecord(empId, date);
+        if (rec.status === '入' || rec.status === '离') return this.showToast('🔒 入职/离职状态受保护，请通过右键菜单修改', 'warning');
+        this.saveHistory();
+        if (rec.status === '出勤') rec.status = '休息'; else if (rec.status === '休息') rec.status = '半天'; else rec.status = '出勤'; 
+        cell.innerHTML = STATUS_MAP[rec.status].icon;
+        this.updateRowStatsLocally(empId, cell.closest('tr'));
+        this.debouncedSaveAndRender();
+    }
+
+    // 关键改动：从云端异步拉取数据
+    async loadData() { 
+        try {
+            this.updateSyncStatus('🟡 正在连接云端...', 'var(--warning)');
+            const response = await fetch(this.API_URL);
+            if (response.ok) {
+                const cloudData = await response.json();
+                if (Object.keys(cloudData).length > 0) {
+                    this.state = { ...this.state, ...cloudData }; 
+                    this.updateSyncStatus('🟢 云端数据同步完成');
+                } else {
+                    this.updateSyncStatus('🟢 云端初始空状态');
+                }
+            }
+        } catch (e) {
+            console.error("云端加载失败，尝试读取本地缓存", e);
+            try {
+                const backup = localStorage.getItem(this.CONFIG.BACKUP_KEY);
+                if (backup) {
+                    this.state = { ...this.state, ...JSON.parse(decodeURIComponent(atob(backup))) };
+                    this.updateSyncStatus('🔴 离线模式 (使用本地缓存)', 'var(--danger)');
+                }
+            } catch (err) {}
+        }
+    }
+
+    // 关键改动：将数据推送到云端 API
+    async _saveData() { 
+        try { 
+            this.updateSyncStatus('🟡 正在同步至云端...', 'var(--warning)');
+            const payload = JSON.stringify(this.state);
+            
+            fetch(this.API_URL, {
+                method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }
+            }).then(res => {
+                if(res.ok) this.updateSyncStatus('🟢 数据已安全存入云端');
+            }).catch(e => this.updateSyncStatus('🔴 云端同步失败', 'var(--danger)'));
+
+            localStorage.setItem(this.CONFIG.BACKUP_KEY, btoa(encodeURIComponent(payload))); 
+        } catch (e) {}
+    }
+
+    initDate() { 
+        if (!this.state.yearMonth) { const d = new Date(); this.state.yearMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; } 
+        this.updateDate(); 
+    }
+
+    updateDate() {
+        const [year, month] = this.state.yearMonth.split('-').map(Number);
+        const daysCount = new Date(year, month, 0).getDate();
+        const weekMap = ['日', '一', '二', '三', '四', '五', '六'];
+        let currentDayOfWeek = new Date(year, month - 1, 1).getDay();
+        this.state.cachedDays = Array.from({ length: daysCount }, (_, i) => {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(i+1).padStart(2, '0')}`;
+            const w = currentDayOfWeek; currentDayOfWeek = (currentDayOfWeek + 1) % 7;
+            return { day: i + 1, week: weekMap[w], fullDate: dateStr, isWeekend: w === 0 || w === 6, isHoliday: this.CONFIG.HOLIDAYS.has(dateStr) };
+        });
+    }
+
+    getSafeRecord(empId, dateStr) {
+        const key = `${empId}_${dateStr}`;
+        if (!this.state.records[key]) { this.state.records[key] = { status: this.CONFIG.HOLIDAYS.has(dateStr) ? '休息' : '出勤', note: '' }; }
+        return this.state.records[key];
+    }
+
+    getFilteredEmps() { return this.state.employees.filter(e => this.state.currentFilterDept === '全部' || e.department === this.state.currentFilterDept); }
+
+    renderAll() {
+        const currentYearStr = this.state.yearMonth.replace('-', '年');
+        this.DOM.currentMonthDisplay.innerText = currentYearStr + '月';
+        this.DOM.summaryTitle.innerText = `${currentYearStr}月 个人考勤汇总`;
+        this.DOM.mainTableTitle.innerText = `${currentYearStr}月 排班明细`;
+        
+        this.DOM.deptTabs.innerHTML = `<div class="tab ${this.state.currentFilterDept === '全部' ? 'active' : ''}" data-action="filterDept" data-dept="全部">全局视图</div>` + 
+            this.state.departments.map(d => `<div class="tab ${this.state.currentFilterDept === d ? 'active' : ''}" data-action="filterDept" data-dept="${escapeHTML(d)}">${escapeHTML(d)}</div>`).join('');
+
+        const emps = this.getFilteredEmps(); const days = this.state.cachedDays;
+        
+        this.DOM.mainThead.innerHTML = `
+            <tr><th rowspan="2" class="col-idx">NO.</th><th rowspan="2" class="col-name">姓名</th><th rowspan="2" class="col-dept">部门</th>${days.map(d => `<th class="col-day ${d.isHoliday ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : '')}" data-date="${d.fullDate}">${d.day}</th>`).join('')}<th rowspan="2" class="col-stat">出勤</th><th rowspan="2" class="col-stat">休息</th></tr>
+            <tr>${days.map(d => `<th class="col-day ${d.isHoliday ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : '')}" data-date="${d.fullDate}">${d.week}</th>`).join('')}</tr>
+        `;
+
+        if (emps.length === 0) {
+            this.DOM.mainTbody.innerHTML = `<tr><td colspan="${days.length + 5}" style="padding:80px; color:var(--text-muted); text-align:center;">暂无员工数据，请添加</td></tr>`;
+            this.recalcGlobalStats(); return;
+        }
+
+        const deptOptionsHTML = (currentDept) => this.state.departments.map(d => `<option value="${escapeHTML(d)}" ${d === currentDept ? 'selected' : ''}>${escapeHTML(d)}</option>`).join('');
+
+        this.DOM.mainTbody.innerHTML = emps.map((emp, i) => {
+            let att = 0, rst = 0;
+            const cellsHTML = days.map(d => {
+                if (!this.isDateValidForEmp(emp, d.fullDate)) return `<td class="col-day cell-disabled" data-date="${d.fullDate}">/</td>`;
+                const rec = this.getSafeRecord(emp.id, d.fullDate); const statObj = STATUS_MAP[rec.status] || STATUS_MAP['出勤'];
+                att += statObj.att; rst += statObj.rst;
+                return `<td class="col-day cell-status ${rec.note ? 'has-note' : ''}" title="${escapeHTML(rec.note)}" data-emp-id="${emp.id}" data-date="${d.fullDate}">${statObj.icon}</td>`;
+            }).join('');
+            
+            return `<tr>
+                <td class="col-idx">${i + 1}</td>
+                <td class="col-name"><input class="name-input input-seamless" value="${escapeHTML(emp.name)}" data-emp-id="${emp.id}"></td>
+                <td class="col-dept"><select class="dept-select input-seamless" data-emp-id="${emp.id}">${deptOptionsHTML(emp.department)}</select></td>
+                ${cellsHTML}
+                <td class="col-stat stat-attend" style="color:var(--success);">${att}</td>
+                <td class="col-stat stat-rest" style="color:var(--text-muted);">${rst}</td>
+            </tr>`;
+        }).join('');
+        
+        this.recalcGlobalStats(); this._saveData();
+    }
+
+    updateRowStatsLocally(empId, tr) {
+        let att = 0, rst = 0; const emp = this.state.employees.find(e => e.id === empId); if (!emp) return;
+        this.state.cachedDays.forEach(d => {
+            if (this.isDateValidForEmp(emp, d.fullDate)) {
+                const statObj = STATUS_MAP[this.getSafeRecord(empId, d.fullDate).status] || STATUS_MAP['出勤'];
+                att += statObj.att; rst += statObj.rst;
+            }
+        });
+        tr.querySelector('.stat-attend').innerText = att; tr.querySelector('.stat-rest').innerText = rst;
+    }
+
+    recalcGlobalStats() {
+        const emps = this.getFilteredEmps(); let globalAtt = 0, globalValidDays = 0;
+        this.DOM.summaryTbody.innerHTML = emps.map((emp, idx) => {
+            let att = 0, rst = 0;
+            this.state.cachedDays.forEach(d => { 
+                if (this.isDateValidForEmp(emp, d.fullDate)) {
+                    globalValidDays++; const statObj = STATUS_MAP[this.getSafeRecord(emp.id, d.fullDate).status] || STATUS_MAP['出勤'];
+                    att += statObj.att; rst += statObj.rst; globalAtt += statObj.att;
+                }
+            });
+            return `<tr><td>${idx + 1}</td><td style="font-weight:600;">${escapeHTML(emp.name)}</td><td>${escapeHTML(emp.department)}</td><td style="color:var(--success); font-weight:bold;">${att}</td><td>${rst}</td></tr>`;
+        }).join('');
+        this.DOM.sumTotalEmp.innerText = emps.length;
+        this.DOM.sumTotalAttend.innerText = globalAtt;
+        this.DOM.sumAttendRate.innerText = globalValidDays === 0 ? '0%' : `${((globalAtt / globalValidDays) * 100).toFixed(1)}%`;
+    }
+
+    filterDept(e, el) { this.state.currentFilterDept = el.dataset.dept; this.renderAll(); }
+    shiftMonth(delta) {
+        let [y, m] = this.state.yearMonth.split('-').map(Number);
+        m += delta; if (m > 12) { m = 1; y++; } else if (m < 1) { m = 12; y--; }
+        this.state.yearMonth = `${y}-${String(m).padStart(2, '0')}`; this.updateDate(); this.renderAll();
+    }
+    prevMonth() { this.shiftMonth(-1); } nextMonth() { this.shiftMonth(1); }
+
+    handleInputChanges(e) {
+        if (e.target.classList.contains('name-input')) {
+            const emp = this.state.employees.find(x => x.id === e.target.dataset.empId);
+            if (emp && e.target.value.trim() !== '') { emp.name = e.target.value.trim(); this.debouncedSaveAndRender(); }
+        }
+    }
+    handleSelectChanges(e) {
+        if (e.target.classList.contains('dept-select')) {
+            this.saveHistory(); const emp = this.state.employees.find(x => x.id === e.target.dataset.empId);
+            if (emp) { emp.department = e.target.value; this.debouncedSaveAndRender(); }
+        }
+    }
+
+    smartSchedule() {
+        if (!confirm("智能排班：每人每月休2天 (受保护的入职/离职记录将被跳过)。确定？")) return;
+        this.saveHistory(); const emps = this.getFilteredEmps(); if (emps.length === 0) return;
+        const totalDays = this.state.cachedDays.length;
+        emps.forEach(emp => {
+            this.state.cachedDays.forEach(d => {
+                if (this.isDateValidForEmp(emp, d.fullDate)) {
+                    const rec = this.getSafeRecord(emp.id, d.fullDate);
+                    if (rec.status !== '入' && rec.status !== '离') {
+                        const isHol = this.CONFIG.HOLIDAYS.has(d.fullDate);
+                        rec.status = isHol ? '休息' : '出勤'; rec.note = isHol ? '节假日' : '';
+                    }
+                }
+            });
+        });
+        const deptEmps = {}; emps.forEach(e => { (deptEmps[e.department] = deptEmps[e.department] || []).push(e); });
+        Object.keys(deptEmps).forEach(dept => {
+            const members = deptEmps[dept]; const restCountMap = {}; this.state.cachedDays.forEach(d => restCountMap[d.fullDate] = 0);
+            const dailyQuota = Math.max(2, Math.ceil((members.length * 2) / totalDays));
+            members.forEach((emp, eIdx) => {
+                const validDays = this.state.cachedDays.map((d, i) => ({ d, i })).filter(x => {
+                    if (!this.isDateValidForEmp(emp, x.d.fullDate) || this.CONFIG.HOLIDAYS.has(x.d.fullDate)) return false;
+                    return this.getSafeRecord(emp.id, x.d.fullDate).status !== '入' && this.getSafeRecord(emp.id, x.d.fullDate).status !== '离'; 
+                });
+                if (validDays.length === 0) return;
+                let assigned = [];
+                const tryAssign = (gap) => {
+                    for (let k = 0; k < validDays.length; k++) {
+                        const dayItem = validDays[(eIdx * 7 + k) % validDays.length];
+                        if (restCountMap[dayItem.d.fullDate] < dailyQuota && !assigned.some(idx => Math.abs(dayItem.i - idx) < gap)) {
+                            this.state.records[`${emp.id}_${dayItem.d.fullDate}`].status = '休息'; restCountMap[dayItem.d.fullDate]++; assigned.push(dayItem.i);
+                            if (assigned.length >= 2) return true;
+                        }
+                    } return false;
+                };
+                if (!tryAssign(4)) if (!tryAssign(2)) tryAssign(1);
+            });
+        });
+        this.renderAll(); this.showToast('✨ 智能排班完毕');
+    }
+
+    _batchSet(s) {
+        if (!confirm(`全员设为【${s}】？(受保护的入职/离职记录将被跳过)`)) return;
+        this.saveHistory(); let skipped = 0;
+        this.getFilteredEmps().forEach(emp => {
+            this.state.cachedDays.forEach(d => { 
+                if (this.isDateValidForEmp(emp, d.fullDate)) {
+                    const rec = this.getSafeRecord(emp.id, d.fullDate);
+                    if (rec.status === '入' || rec.status === '离') { skipped++; return; } 
+                    rec.status = s; rec.note = '';
+                }
+            });
+        });
+        this.renderAll(); this.showToast(skipped > 0 ? `✅ 操作成功 (跳过 ${skipped} 个保护状态)` : `✅ 批量操作成功`);
+    }
+    batchSetAttend() { this._batchSet('出勤'); }
+    batchSetWorkdays() {
+        this.saveHistory(); let skipped = 0;
+        this.getFilteredEmps().forEach(emp => {
+            this.state.cachedDays.forEach(d => {
+                if (this.isDateValidForEmp(emp, d.fullDate)) {
+                    const rec = this.getSafeRecord(emp.id, d.fullDate);
+                    if (rec.status === '入' || rec.status === '离') { skipped++; return; } 
+                    const isRest = d.isWeekend || this.CONFIG.HOLIDAYS.has(d.fullDate);
+                    rec.status = isRest ? '休息' : '出勤'; rec.note = this.CONFIG.HOLIDAYS.has(d.fullDate) ? '节假日' : '';
+                }
+            });
+        });
+        this.renderAll(); this.showToast('已应用工作日模式');
+    }
+
+    _ctxUpdateLifeCycle(targetStatus) {
+        this.saveHistory(); const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId);
+        if (emp) {
+            const dateStr = this.ctxTarget.dateStr;
+            if (targetStatus === '入') { if (emp.leaveDate && dateStr > emp.leaveDate) emp.leaveDate = ''; emp.joinDate = dateStr; } 
+            else if (targetStatus === '离') { if (emp.joinDate && dateStr < emp.joinDate) emp.joinDate = ''; emp.leaveDate = dateStr; }
+            this.getSafeRecord(emp.id, dateStr).status = targetStatus;
+            this._saveData(); this.renderAll(); this.showToast(`✅ 已设为${targetStatus}职`);
+        }
+        this.closeContextMenu();
+    }
+    ctxSetJoin() { this._ctxUpdateLifeCycle('入'); } ctxSetLeave() { this._ctxUpdateLifeCycle('离'); }
+
+    _ctxBatchUpdate(targetStatus) {
+        this.saveHistory(); const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId); 
+        this.state.cachedDays.forEach(d => { 
+            if (this.isDateValidForEmp(emp, d.fullDate)) {
+                const rec = this.getSafeRecord(emp.id, d.fullDate); if (rec.status !== '入' && rec.status !== '离') rec.status = targetStatus;
+            }
+        }); 
+        this.renderAll(); this.closeContextMenu(); 
+    }
+    ctxBatchAttend() { this._ctxBatchUpdate('出勤'); } ctxBatchRest() { this._ctxBatchUpdate('休息'); }
+
+    getTodayStr() { const d = new Date(); return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`; }
+
+    exportExcel() {
+        try {
+            const emps = this.getFilteredEmps(); const days = this.state.cachedDays;
+            const rows = emps.map((emp, i) => {
+                let att = 0, rst = 0;
+                const statuses = days.map(d => {
+                    if (!this.isDateValidForEmp(emp, d.fullDate)) return '-';
+                    const statObj = STATUS_MAP[this.getSafeRecord(emp.id, d.fullDate).status] || STATUS_MAP['出勤'];
+                    att += statObj.att; rst += statObj.rst; return statObj.text;
+                });
+                return [i + 1, emp.name, emp.department, ...statuses, att, rst];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([['序号', '姓名', '部门', ...days.map(d => `${d.day}日`), '出勤', '休息'], ['', '', '', ...days.map(d => d.week), '', ''], ...rows]);
+            ws['!merges'] = [{s:{r:0,c:0},e:{r:1,c:0}}, {s:{r:0,c:1},e:{r:1,c:1}}, {s:{r:0,c:2},e:{r:1,c:2}}, {s:{r:0,c:days.length+3},e:{r:1,c:days.length+3}}, {s:{r:0,c:days.length+4},e:{r:1,c:days.length+4}}];
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "明细");
+            XLSX.writeFile(wb, `排班明细_${this.getTodayStr()}.xlsx`); this.hasUnexportedChanges = false; 
+        } catch(e) { this.showToast('导出失败', 'danger'); }
+    }
+
+    exportSummaryExcel() {
+        try {
+            const emps = this.getFilteredEmps(); const header = ['员工姓名', '所属部门', '出勤(天)', '休息(天)'];
+            const rows = emps.map(emp => {
+                let att = 0, rst = 0;
+                this.state.cachedDays.forEach(d => {
+                    if (this.isDateValidForEmp(emp, d.fullDate)) {
+                        const statObj = STATUS_MAP[this.getSafeRecord(emp.id, d.fullDate).status] || STATUS_MAP['出勤'];
+                        att += statObj.att; rst += statObj.rst;
+                    }
+                });
+                return [emp.name, emp.department, att, rst];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "汇总");
+            const [y, m] = this.state.yearMonth.split('-'); XLSX.writeFile(wb, `考勤汇总_${y}年${m}月份.xlsx`); this.showToast('✅ 汇总表已导出');
+        } catch(e) { this.showToast('导出失败', 'danger'); }
+    }
+
+    onContextMenu(e) {
+        const cell = e.target.closest('.cell-status'); if (!cell) return; e.preventDefault();
+        this.ctxTarget = { empId: cell.dataset.empId, dateStr: cell.dataset.date, cellElem: cell };
+        const menu = this.DOM.contextMenu; menu.style.display = 'block';
+        const menuWidth = menu.offsetWidth; const menuHeight = menu.offsetHeight;
+        let x = e.clientX; let y = e.clientY;
+        if (x + menuWidth > window.innerWidth) x -= menuWidth; if (y + menuHeight > window.innerHeight) y -= menuHeight;
+        menu.style.left = `${x}px`; menu.style.top = `${y}px`;
+    }
+
+    ctxSetHalf() {
+        this.saveHistory(); const rec = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr); rec.status = '半天'; 
+        this.ctxTarget.cellElem.innerHTML = STATUS_MAP['半天'].icon; this.updateRowStatsLocally(this.ctxTarget.empId, this.ctxTarget.cellElem.closest('tr'));
+        this.debouncedSaveAndRender(); this.closeContextMenu();
+    }
+
+    ctxMoveUp() {
+        this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
+        if (fIdx > 0) {
+            const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx - 1].id);
+            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll();
+        } this.closeContextMenu();
+    }
+
+    ctxMoveDown() {
+        this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
+        if (fIdx !== -1 && fIdx < fEmps.length - 1) {
+            const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx + 1].id);
+            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll();
+        } this.closeContextMenu();
+    }
+
+    ctxAddNote() {
+        document.getElementById('noteText').value = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr).note || '';
+        document.getElementById('noteModal').style.display = 'flex'; this.closeContextMenu();
+    }
+
+    saveNote() {
+        this.saveHistory(); const rec = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr);
+        rec.note = document.getElementById('noteText').value.trim();
+        this.ctxTarget.cellElem.classList.toggle('has-note', !!rec.note); this.ctxTarget.cellElem.title = rec.note;
+        document.getElementById('noteModal').style.display = 'none'; this._saveData();
+    }
+
+    openEmpModal() {
+        document.getElementById('empId').value = ''; document.getElementById('empName').value = ''; document.getElementById('empJoinDate').value = ''; document.getElementById('empLeaveDate').value = '';
+        document.getElementById('empDept').innerHTML = this.state.departments.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('');
+        document.getElementById('empDeleteBtn').classList.add('hidden'); document.getElementById('empModal').style.display = 'flex';
+    }
+
+    ctxEditEmp() {
+        const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId);
+        document.getElementById('empId').value = emp.id; document.getElementById('empName').value = emp.name;
+        document.getElementById('empDept').innerHTML = this.state.departments.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('');
+        document.getElementById('empDept').value = emp.department; document.getElementById('empJoinDate').value = emp.joinDate || ''; document.getElementById('empLeaveDate').value = emp.leaveDate || '';
+        document.getElementById('empDeleteBtn').classList.remove('hidden'); document.getElementById('empModal').style.display = 'flex'; this.closeContextMenu();
+    }
+    
+    closeEmpModal(e) { if(e) e.preventDefault(); document.getElementById('empModal').style.display = 'none'; }
+    closeDeptModal(e) { if(e) e.preventDefault(); document.getElementById('deptModal').style.display = 'none'; }
+    closeNoteModal(e) { if(e) e.preventDefault(); document.getElementById('noteModal').style.display = 'none'; }
+    
+    saveEmp() {
+        this.saveHistory(); const id = document.getElementById('empId').value; const name = document.getElementById('empName').value.trim();
+        if (!name) return this.showToast('姓名不可为空', 'warning');
+        const dept = document.getElementById('empDept').value; const join = document.getElementById('empJoinDate').value; const leave = document.getElementById('empLeaveDate').value;
+        if (id) {
+            const emp = this.state.employees.find(e => e.id === id);
+            if (emp) { emp.name = name; emp.department = dept; emp.joinDate = join; emp.leaveDate = leave; }
+        } else this.state.employees.push({ id: Date.now().toString(), name, department: dept, joinDate: join, leaveDate: leave });
+        this.closeEmpModal(); this.renderAll();
+    }
+
+    deleteEmp() {
+        if (!confirm('确定彻底删除该员工？')) return;
+        this.saveHistory(); const id = document.getElementById('empId').value;
+        this.state.employees = this.state.employees.filter(e => e.id !== id);
+        Object.keys(this.state.records).forEach(k => { if (k.startsWith(id + '_')) delete this.state.records[k]; });
+        this.closeEmpModal(); this.renderAll();
+    }
+
+    openDeptModal() {
+        document.getElementById('deptList').innerHTML = this.state.departments.map(d => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--border);">
+                <span>${escapeHTML(d)}</span>
+                <div>
+                    <button class="btn btn-outline" style="padding:2px 8px; font-size:12px; color:var(--primary); border:none; box-shadow:none;" data-action="editDept" data-targetdept="${escapeHTML(d)}">重命名</button>
+                    ${this.state.departments.length > 1 ? `<button class="btn btn-outline" style="padding:2px 8px; font-size:12px; color:var(--danger); border:none; box-shadow:none;" data-action="deleteDept" data-targetdept="${escapeHTML(d)}">删除</button>` : ''}
+                </div>
+            </div>`).join('');
+        document.getElementById('deptModal').style.display = 'flex';
+    }
+
+    addDept() {
+        const val = document.getElementById('newDeptName').value.trim();
+        if (val && !this.state.departments.includes(val)) { this.saveHistory(); this.state.departments.push(val); document.getElementById('newDeptName').value = ''; this.openDeptModal(); this.renderAll(); }
+    }
+
+    editDept(e, el) {
+        const old = el.dataset.targetdept; const n = prompt('新名称：', old);
+        if (n && n.trim() !== '' && !this.state.departments.includes(n.trim())) {
+            this.saveHistory(); this.state.departments[this.state.departments.indexOf(old)] = n.trim();
+            this.state.employees.forEach(e => { if (e.department === old) e.department = n.trim(); });
+            this.openDeptModal(); this.renderAll();
+        }
+    }
+
+    deleteDept(e, el) {
+        const d = el.dataset.targetdept; if (this.state.departments.length <= 1) return;
+        if (confirm(`删除【${d}】？该部门员工将自动归入其他部门。`)) {
+            this.saveHistory(); this.state.departments = this.state.departments.filter(x => x !== d);
+            const fallback = this.state.departments[0]; this.state.employees.forEach(e => { if (e.department === d) e.department = fallback; });
+            this.openDeptModal(); this.renderAll();
+        }
+    }
+
+    backupData() {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(this.state)], {type:"application/json"}));
+        a.download = `考勤数据备份_${this.state.yearMonth}.json`; a.click(); this.hasUnexportedChanges = false; 
+    }
+
+    triggerRestore() { document.getElementById('restoreFile').click(); }
+
+    restoreData(e) {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader(); 
+        r.onload = ev => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (data.employees) { 
+                    this.saveHistory(); this.state = data; this._saveData(); // 直接覆盖云端
+                    this.updateDate(); this.renderAll(); this.showToast('✅ 数据恢复并已同步至云端'); 
+                }
+            } catch(err) { this.showToast('❌ 解析失败', 'danger'); }
+        }; 
+        r.readAsText(f); e.target.value = ''; 
+    }
+
+    showToast(msg, type = 'success') {
+        const t = document.getElementById('toast'); t.innerHTML = msg; t.style.background = type === 'success' ? '#1E293B' : 'var(--danger)';
+        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); }; }
+}
+
+const app = new AttendanceApp();
+window.onload = () => app.init();
+</script>
+</body>
+</html>

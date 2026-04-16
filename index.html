@@ -7,9 +7,6 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
-        /* =========================================================
-           视觉色彩与规范 (保持原样)
-           ========================================================= */
         :root {
             --primary: #4F46E5; --primary-hover: #4338CA; --primary-light: #EEF2FF;
             --success: #059669; --success-bg: #D1FAE5; --warning: #D97706;
@@ -312,9 +309,12 @@ class AttendanceApp {
         };
         this.API_URL = '/api'; 
 
-        // 【新增】云端版本号锁定
         this.state = { yearMonth: '', currentFilterDept: '全部', departments: ['默认部门'], employees: [], records: {}, cachedDays: [] };
+        
+        // 核心锁控制
         this.cloudVersion = null; 
+        this.isSaving = false;
+        this.saveQueued = false;
         
         this.historyStack = [];
         this.hoveredDateStr = null; 
@@ -329,7 +329,7 @@ class AttendanceApp {
 
     async init() { 
         this.cacheDOM(); 
-        this.initDate(); // 先初始化月份，才能发送带参数的请求
+        this.initDate();
         await this.loadData(); 
         this.performDataHealthCheck(); 
         this.bindEvents(); 
@@ -413,7 +413,6 @@ class AttendanceApp {
         this.DOM.mainTbody.addEventListener('input', this.handleInputChanges.bind(this));
         this.DOM.mainTbody.addEventListener('change', this.handleSelectChanges.bind(this)); 
         
-        // 【新增】监听日期选择器，动态加载对应月份数据
         this.DOM.monthPicker.addEventListener('change', async (e) => { 
             this.state.yearMonth = e.target.value; 
             this.updateDate(); 
@@ -486,7 +485,7 @@ class AttendanceApp {
         this.debouncedSaveAndRender();
     }
 
-    // 【修改】按月请求接口，并支持快照自动继承
+    // 智能继承上月快照逻辑
     async loadData() { 
         try {
             this.updateSyncStatus('🟡 正在拉取当月数据...', 'var(--warning)');
@@ -496,14 +495,31 @@ class AttendanceApp {
                 const cloudData = await response.json();
                 
                 if (cloudData.isEmpty) {
-                    // 智能快照：保留员工名单，清空打卡记录
-                    this.state.records = {};
-                    this.cloudVersion = null; // 新版本归零
-                    this.updateSyncStatus('🟢 创建新月份快照');
-                    this._saveData(); // 将名单写入新月份
+                    this.updateSyncStatus('🟡 正在继承上月花名册...', 'var(--warning)');
+                    
+                    let [y, m] = this.state.yearMonth.split('-').map(Number);
+                    let prevM = m - 1; let prevY = y;
+                    if (prevM < 1) { prevM = 12; prevY--; }
+                    let prevMonthStr = `${prevY}-${String(prevM).padStart(2, '0')}`;
+                    
+                    try {
+                        const prevRes = await fetch(`${this.API_URL}?month=${prevMonthStr}`);
+                        if (prevRes.ok) {
+                            const prevData = await prevRes.json();
+                            if (prevData.state && prevData.state.employees) {
+                                this.state.employees = prevData.state.employees;
+                                this.state.departments = prevData.state.departments || ['默认部门'];
+                            }
+                        }
+                    } catch (err) { console.warn("无上月历史数据可继承"); }
+
+                    this.state.records = {}; 
+                    this.cloudVersion = null; 
+                    this._saveData(); 
+                    this.updateSyncStatus('🟢 已创建新月份快照');
                 } else if (cloudData.state) {
                     this.state = { ...this.state, ...cloudData.state }; 
-                    this.cloudVersion = cloudData._version; // 同步云端版本锁
+                    this.cloudVersion = cloudData._version; 
                     this.updateSyncStatus('🟢 云端同步完成');
                 }
             }
@@ -519,22 +535,23 @@ class AttendanceApp {
         }
     }
 
-    // 【修改】增加乐观锁校验，保护云端数据不被覆盖
+    // 并发保存防冲突（排队锁）
     async _saveData() { 
+        if (this.isSaving) {
+            this.saveQueued = true; 
+            return;
+        }
+        
+        this.isSaving = true;
         try { 
             this.updateSyncStatus('🟡 正在同步至云端...', 'var(--warning)');
             
-            const payload = JSON.stringify({
-                state: this.state,
-                _version: this.cloudVersion 
-            });
-            
+            const payload = JSON.stringify({ state: this.state, _version: this.cloudVersion });
             const response = await fetch(`${this.API_URL}?month=${this.state.yearMonth}`, {
                 method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }
             });
 
             if (response.status === 409) {
-                // 冲突拦截触发
                 this.updateSyncStatus('🔴 冲突：请刷新', 'var(--danger)');
                 this.showToast('⚠️ 警告：其他同事修改了排班！为防止覆盖他人数据，请立刻刷新页面！', 'danger');
                 return; 
@@ -542,12 +559,18 @@ class AttendanceApp {
 
             if (response.ok) {
                 const result = await response.json();
-                this.cloudVersion = result._version; // 更新本地版本锁
+                this.cloudVersion = result._version; 
                 this.updateSyncStatus('🟢 数据已安全存入云端');
                 localStorage.setItem(this.CONFIG.BACKUP_KEY, btoa(encodeURIComponent(JSON.stringify(this.state)))); 
             }
         } catch (e) {
             this.updateSyncStatus('🔴 网络异常', 'var(--danger)');
+        } finally {
+            this.isSaving = false;
+            if (this.saveQueued) {
+                this.saveQueued = false;
+                this._saveData(); 
+            }
         }
     }
 
@@ -651,7 +674,6 @@ class AttendanceApp {
 
     filterDept(e, el) { this.state.currentFilterDept = el.dataset.dept; this.renderAll(); }
     
-    // 【修改】切换月份时，主动拉取云端对应月数据
     async shiftMonth(delta) {
         let [y, m] = this.state.yearMonth.split('-').map(Number);
         m += delta; if (m > 12) { m = 1; y++; } else if (m < 1) { m = 12; y--; }
@@ -933,6 +955,7 @@ class AttendanceApp {
 
     triggerRestore() { document.getElementById('restoreFile').click(); }
 
+    // 去除重置云端版本锁，保证恢复数据的成功写入
     restoreData(e) {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader(); 
@@ -940,13 +963,9 @@ class AttendanceApp {
             try {
                 const data = JSON.parse(ev.target.result);
                 if (data.employees) { 
-                    this.saveHistory(); 
-                    this.state = data; 
-                    // 【修复】：去掉破坏版本号的代码，继续使用系统刚加载时获取的合法版本号进行保存
+                    this.saveHistory(); this.state = data; 
                     this._saveData(); 
-                    this.updateDate(); 
-                    this.renderAll(); 
-                    this.showToast('✅ 数据恢复成功并已安全同步云端'); 
+                    this.updateDate(); this.renderAll(); this.showToast('✅ 数据恢复并已安全同步云端'); 
                 }
             } catch(err) { this.showToast('❌ 解析失败', 'danger'); }
         }; 

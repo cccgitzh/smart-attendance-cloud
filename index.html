@@ -357,7 +357,7 @@ class AttendanceApp {
     undo() {
         if (this.historyStack.length === 0) return this.showToast('没有可撤销的操作', 'warning');
         this.state = JSON.parse(this.historyStack.pop());
-        this.updateDate(); this.renderAll(); this._saveData();
+        this.updateDate(); this.renderAll(); this.debouncedSaveAndRender();
         this.showToast('↩️ 撤销成功');
     }
 
@@ -373,7 +373,7 @@ class AttendanceApp {
                 if (!STATUS_MAP[rec.status]) { rec.status = '出勤'; invalidFixed++; }
             }
         });
-        if (orphanedRemoved > 0 || invalidFixed > 0) this._saveData(); 
+        if (orphanedRemoved > 0 || invalidFixed > 0) this.debouncedSaveAndRender(); 
     }
 
     isDateValidForEmp(emp, dateStr) {
@@ -488,6 +488,8 @@ class AttendanceApp {
     // 智能继承上月快照逻辑
     async loadData() { 
         try {
+            // 修复 Bug：切换月份拉取数据前，先清空本地的版本锁，防止带着旧月份版本锁引发 409 误报冲突
+            this.cloudVersion = null;
             this.updateSyncStatus('🟡 正在拉取当月数据...', 'var(--warning)');
             const response = await fetch(`${this.API_URL}?month=${this.state.yearMonth}`);
             
@@ -515,7 +517,7 @@ class AttendanceApp {
 
                     this.state.records = {}; 
                     this.cloudVersion = null; 
-                    this._saveData(); 
+                    this.debouncedSaveAndRender(); 
                     this.updateSyncStatus('🟢 已创建新月份快照');
                 } else if (cloudData.state) {
                     this.state = { ...this.state, ...cloudData.state }; 
@@ -528,7 +530,14 @@ class AttendanceApp {
             try {
                 const backup = localStorage.getItem(this.CONFIG.BACKUP_KEY);
                 if (backup) {
-                    this.state = { ...this.state, ...JSON.parse(decodeURIComponent(atob(backup))) };
+                    // 修复：兼容纯 JSON 字符串存储与历史 Base64 加密存储，防止 localStorage 解析崩溃
+                    let parsedState;
+                    try {
+                        parsedState = JSON.parse(backup);
+                    } catch (_) {
+                        parsedState = JSON.parse(decodeURIComponent(atob(backup)));
+                    }
+                    this.state = { ...this.state, ...parsedState };
                     this.updateSyncStatus('🔴 离线模式 (使用本地缓存)', 'var(--danger)');
                 }
             } catch (err) {}
@@ -561,7 +570,12 @@ class AttendanceApp {
                 const result = await response.json();
                 this.cloudVersion = result._version; 
                 this.updateSyncStatus('🟢 数据已安全存入云端');
-                localStorage.setItem(this.CONFIG.BACKUP_KEY, btoa(encodeURIComponent(JSON.stringify(this.state)))); 
+                // 修复：直接序列化保存纯 JSON 字符串，防止复杂的 Base64 编码溢出 5MB 限制
+                try {
+                    localStorage.setItem(this.CONFIG.BACKUP_KEY, JSON.stringify(this.state)); 
+                } catch(e) {
+                    console.warn("LocalStorage 全局容量溢出");
+                }
             }
         } catch (e) {
             this.updateSyncStatus('🔴 网络异常', 'var(--danger)');
@@ -641,7 +655,7 @@ class AttendanceApp {
             </tr>`;
         }).join('');
         
-        this.recalcGlobalStats(); this._saveData();
+        this.recalcGlobalStats();
     }
 
     updateRowStatsLocally(empId, tr) {
@@ -736,7 +750,7 @@ class AttendanceApp {
                 if (!tryAssign(4)) if (!tryAssign(2)) tryAssign(1);
             });
         });
-        this.renderAll(); this.showToast('✨ 智能排班完毕');
+        this.renderAll(); this.debouncedSaveAndRender(); this.showToast('✨ 智能排班完毕');
     }
 
     _batchSet(s) {
@@ -751,7 +765,7 @@ class AttendanceApp {
                 }
             });
         });
-        this.renderAll(); this.showToast(skipped > 0 ? `✅ 操作成功 (跳过 ${skipped} 个保护状态)` : `✅ 批量操作成功`);
+        this.renderAll(); this.debouncedSaveAndRender(); this.showToast(skipped > 0 ? `✅ 操作成功 (跳过 ${skipped} 个保护状态)` : `✅ 批量操作成功`);
     }
     batchSetAttend() { this._batchSet('出勤'); }
     batchSetWorkdays() {
@@ -766,7 +780,7 @@ class AttendanceApp {
                 }
             });
         });
-        this.renderAll(); this.showToast('已应用工作日模式');
+        this.renderAll(); this.debouncedSaveAndRender(); this.showToast('已应用工作日模式');
     }
 
     _ctxUpdateLifeCycle(targetStatus) {
@@ -776,7 +790,7 @@ class AttendanceApp {
             if (targetStatus === '入') { if (emp.leaveDate && dateStr > emp.leaveDate) emp.leaveDate = ''; emp.joinDate = dateStr; } 
             else if (targetStatus === '离') { if (emp.joinDate && dateStr < emp.joinDate) emp.joinDate = ''; emp.leaveDate = dateStr; }
             this.getSafeRecord(emp.id, dateStr).status = targetStatus;
-            this._saveData(); this.renderAll(); this.showToast(`✅ 已设为${targetStatus}职`);
+            this.debouncedSaveAndRender(); this.renderAll(); this.showToast(`✅ 已设为${targetStatus}职`);
         }
         this.closeContextMenu();
     }
@@ -789,7 +803,7 @@ class AttendanceApp {
                 const rec = this.getSafeRecord(emp.id, d.fullDate); if (rec.status !== '入' && rec.status !== '离') rec.status = targetStatus;
             }
         }); 
-        this.renderAll(); this.closeContextMenu(); 
+        this.renderAll(); this.debouncedSaveAndRender(); this.closeContextMenu(); 
     }
     ctxBatchAttend() { this._ctxBatchUpdate('出勤'); } ctxBatchRest() { this._ctxBatchUpdate('休息'); }
 
@@ -852,7 +866,7 @@ class AttendanceApp {
         this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
         if (fIdx > 0) {
             const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx - 1].id);
-            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll();
+            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll(); this.debouncedSaveAndRender();
         } this.closeContextMenu();
     }
 
@@ -860,7 +874,7 @@ class AttendanceApp {
         this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
         if (fIdx !== -1 && fIdx < fEmps.length - 1) {
             const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx + 1].id);
-            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll();
+            [this.state.employees[gIdx1], this.state.employees[gIdx2]] = [this.state.employees[gIdx2], this.state.employees[gIdx1]]; this.renderAll(); this.debouncedSaveAndRender();
         } this.closeContextMenu();
     }
 
@@ -873,7 +887,7 @@ class AttendanceApp {
         this.saveHistory(); const rec = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr);
         rec.note = document.getElementById('noteText').value.trim();
         this.ctxTarget.cellElem.classList.toggle('has-note', !!rec.note); this.ctxTarget.cellElem.title = rec.note;
-        document.getElementById('noteModal').style.display = 'none'; this._saveData();
+        document.getElementById('noteModal').style.display = 'none'; this.debouncedSaveAndRender();
     }
 
     openEmpModal() {
@@ -902,7 +916,7 @@ class AttendanceApp {
             const emp = this.state.employees.find(e => e.id === id);
             if (emp) { emp.name = name; emp.department = dept; emp.joinDate = join; emp.leaveDate = leave; }
         } else this.state.employees.push({ id: Date.now().toString(), name, department: dept, joinDate: join, leaveDate: leave });
-        this.closeEmpModal(); this.renderAll();
+        this.closeEmpModal(); this.renderAll(); this.debouncedSaveAndRender();
     }
 
     deleteEmp() {
@@ -910,7 +924,7 @@ class AttendanceApp {
         this.saveHistory(); const id = document.getElementById('empId').value;
         this.state.employees = this.state.employees.filter(e => e.id !== id);
         Object.keys(this.state.records).forEach(k => { if (k.startsWith(id + '_')) delete this.state.records[k]; });
-        this.closeEmpModal(); this.renderAll();
+        this.closeEmpModal(); this.renderAll(); this.debouncedSaveAndRender();
     }
 
     openDeptModal() {
@@ -927,7 +941,7 @@ class AttendanceApp {
 
     addDept() {
         const val = document.getElementById('newDeptName').value.trim();
-        if (val && !this.state.departments.includes(val)) { this.saveHistory(); this.state.departments.push(val); document.getElementById('newDeptName').value = ''; this.openDeptModal(); this.renderAll(); }
+        if (val && !this.state.departments.includes(val)) { this.saveHistory(); this.state.departments.push(val); document.getElementById('newDeptName').value = ''; this.openDeptModal(); this.renderAll(); this.debouncedSaveAndRender(); }
     }
 
     editDept(e, el) {
@@ -935,7 +949,7 @@ class AttendanceApp {
         if (n && n.trim() !== '' && !this.state.departments.includes(n.trim())) {
             this.saveHistory(); this.state.departments[this.state.departments.indexOf(old)] = n.trim();
             this.state.employees.forEach(e => { if (e.department === old) e.department = n.trim(); });
-            this.openDeptModal(); this.renderAll();
+            this.openDeptModal(); this.renderAll(); this.debouncedSaveAndRender();
         }
     }
 
@@ -944,7 +958,7 @@ class AttendanceApp {
         if (confirm(`删除【${d}】？该部门员工将自动归入其他部门。`)) {
             this.saveHistory(); this.state.departments = this.state.departments.filter(x => x !== d);
             const fallback = this.state.departments[0]; this.state.employees.forEach(e => { if (e.department === d) e.department = fallback; });
-            this.openDeptModal(); this.renderAll();
+            this.openDeptModal(); this.renderAll(); this.debouncedSaveAndRender();
         }
     }
 
@@ -955,7 +969,6 @@ class AttendanceApp {
 
     triggerRestore() { document.getElementById('restoreFile').click(); }
 
-    // 去除重置云端版本锁，保证恢复数据的成功写入
     restoreData(e) {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader(); 
@@ -964,7 +977,7 @@ class AttendanceApp {
                 const data = JSON.parse(ev.target.result);
                 if (data.employees) { 
                     this.saveHistory(); this.state = data; 
-                    this._saveData(); 
+                    this.debouncedSaveAndRender(); 
                     this.updateDate(); this.renderAll(); this.showToast('✅ 数据恢复并已安全同步云端'); 
                 }
             } catch(err) { this.showToast('❌ 解析失败', 'danger'); }

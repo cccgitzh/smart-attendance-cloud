@@ -2,37 +2,39 @@ export async function onRequest(context) {
   const { request, next } = context;
   const url = new URL(request.url);
 
-  // 🛡️ 1. 定义你的企业统一访问口令（可以自行修改）
-  const SECRET_CODE = "888888"; 
+  // 🛡️ 1. 定义访问口令（可自行修改）
+  const ADMIN_CODE = "888888"; // 管理员口令（可修改/保存数据）
+  const USER_CODE = "123456";  // 普通成员口令（仅可查看）
 
-  // 2. 检查访问者手里有没有“通行证”（Cookie）
+  // 2. 检查 Cookie 中的通行证
   const cookies = request.headers.get("Cookie") || "";
-  // 修复：使用严格正则匹配 Cookie 边界，防止攻击者通过构造带类似子串的 Cookie 绕过鉴权
-  const authPattern = new RegExp(`(?:^|;\\s*)auth_token=${SECRET_CODE}(?:;|$)`);
-  const isAuth = authPattern.test(cookies);
+  const isAdmin = new RegExp(`(?:^|;\\s*)auth_token=${ADMIN_CODE}(?:;|$)`).test(cookies);
+  const isUser = new RegExp(`(?:^|;\\s*)auth_token=${USER_CODE}(?:;|$)`).test(cookies);
 
-  // 3. 如果已经验证过口令，直接放行，让他去访问网页或 API
-  if (isAuth) {
+  // 3. 已经验证过口令（无论是管理员还是普通用户），直接放行
+  if (isAdmin || isUser) {
     return next();
   }
 
-  // 4. 如果访问者正在提交口令表单
+  // 4. 处理登录提交
   if (request.method === "POST" && url.pathname === "/login") {
     const formData = await request.formData();
     const code = formData.get("code");
     
-    if (code === SECRET_CODE) {
-      // ✅ 口令正确：给他发一张有效期 30 天的通行证（Cookie），并让他进入首页
-      // 修复：加入 Secure 与 SameSite=Lax 增强浏览器安全性，防止跨站或重定向时丢失 Cookie
+    if (code === ADMIN_CODE || code === USER_CODE) {
+      const role = code === ADMIN_CODE ? "admin" : "user";
+      // 发送包含了 auth_token 和 user_role 的 Cookie
+      const headers = new Headers({
+        "Location": "/",
+      });
+      headers.append("Set-Cookie", `auth_token=${code}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+      headers.append("Set-Cookie", `user_role=${role}; Path=/; Secure; SameSite=Lax; Max-Age=2592000`); // 前端可读取此属性显示/隐藏界面
+
       return new Response("Login Success", {
         status: 302,
-        headers: {
-          "Location": "/",
-          "Set-Cookie": `auth_token=${SECRET_CODE}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`, // 30天免密
-        }
+        headers
       });
     } else {
-      // ❌ 口令错误：打回原回，并带上错误提示
       return new Response("Login Failed", {
         status: 302,
         headers: { "Location": "/?error=1" }
@@ -40,7 +42,7 @@ export async function onRequest(context) {
     }
   }
 
-  // 5. 如果没有通行证，也不是在提交表单，一律拦截并显示极简登录页
+  // 5. 显示登录界面
   const errorMsg = url.searchParams.get("error") 
     ? "<p style='color: #DC2626; font-size: 14px; font-weight: bold;'>❌ 口令错误，请重试</p>" 
     : "";
@@ -55,7 +57,8 @@ export async function onRequest(context) {
     <style>
       body { font-family: -apple-system, sans-serif; background: #F4F5F7; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
       .login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 320px; border: 1px solid #E2E8F0; }
-      .title { font-size: 20px; font-weight: 800; color: #0F172A; margin-bottom: 24px; }
+      .title { font-size: 20px; font-weight: 800; color: #0F172A; margin-bottom: 12px; }
+      .subtitle { font-size: 12px; color: #64748B; margin-bottom: 24px; }
       input { padding: 12px; border: 2px solid #E2E8F0; border-radius: 8px; width: 100%; box-sizing: border-box; margin-bottom: 16px; text-align: center; font-size: 16px; outline: none; transition: 0.2s; }
       input:focus { border-color: #4F46E5; }
       button { background: #0F172A; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: 0.2s; }
@@ -65,9 +68,10 @@ export async function onRequest(context) {
   <body>
     <div class="login-box">
       <div class="title">🏢 内部考勤系统</div>
+      <div class="subtitle">管理员与只读人员统一登录入口</div>
       ${errorMsg}
       <form method="POST" action="/login">
-        <input type="password" name="code" placeholder="请输入企业访问口令" required autofocus autocomplete="off">
+        <input type="password" name="code" placeholder="请输入访问口令" required autofocus autocomplete="off">
         <button type="submit">进入系统</button>
       </form>
     </div>

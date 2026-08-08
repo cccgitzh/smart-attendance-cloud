@@ -31,7 +31,10 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .header-title { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;}
         .sync-status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--bg-hover); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; transition: 0.3s;}
-        
+        .role-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .role-admin { color: var(--primary); background: var(--primary-light); }
+        .role-user { color: var(--warning); background: #FEF3C7; }
+
         .month-switcher { display: flex; align-items: center; background: var(--bg-hover); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border); }
         .month-switcher h2 { font-size: 15px; font-weight: 700; color: var(--text-main); min-width: 90px; text-align: center; }
         .btn-icon { background: transparent; border: none; padding: 6px 12px; cursor: pointer; border-radius: 6px; color: var(--text-muted); transition: 0.2s; font-weight: bold;}
@@ -93,6 +96,7 @@
         .bg-weekend { background: #FFFBEB !important; color: #B45309; }
         .bg-holiday { background: var(--danger-bg) !important; color: #B91C1C; }
         .cell-status { cursor: pointer; user-select: none; position: relative; }
+        body.readonly-mode .cell-status { cursor: default; }
         .cell-disabled { background: var(--bg-hover) !important; color: var(--border-heavy) !important; cursor: not-allowed; user-select: none; font-size: 12px;}
         .cell-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); margin: 0 auto; }
         
@@ -104,6 +108,7 @@
         .badge-leave { background: #FEE2E2; color: #DC2626; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.2); font-size: 12px; font-weight: 700; }
 
         .cell-status:hover .cell-badge { transform: scale(1.15); }
+        body.readonly-mode .cell-status:hover .cell-badge { transform: none; }
         .cell-status:hover .badge-att { background: var(--success); color: #FFF; box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3); }
         .cell-status:hover .badge-rst { background: #FACC15; color: #000; box-shadow: 0 4px 8px rgba(250, 204, 21, 0.4); }
         .cell-status:hover .badge-hlf { background: var(--half); color: #FFF; box-shadow: 0 4px 8px rgba(14, 165, 233, 0.4); }
@@ -141,7 +146,7 @@
 <div class="container">
     <div class="header">
         <div class="header-title">
-            🏢 智能考勤系统 Pro <span style="font-size:12px; color:var(--primary); background:var(--primary-light); padding:2px 8px; border-radius:10px;">Cloud</span>
+            🏢 智能考勤系统 Pro <span id="roleBadge" class="role-badge role-admin">Cloud</span>
             <div id="syncStatus" class="sync-status" style="color: var(--success);">🟡 正在初始化云端...</div>
         </div>
         <div class="month-switcher">
@@ -186,24 +191,24 @@
     <div class="tabs" id="deptTabs"></div>
 
     <div class="toolbar">
-        <button class="btn btn-primary" data-action="openEmpModal">＋ 添加员工</button>
-        <button class="btn btn-outline" data-action="openDeptModal">🏢 部门管理</button>
-        <div class="divider"></div>
-        <button class="btn btn-brand" data-action="smartSchedule">✨ 智能排班</button>
-        <button class="btn btn-outline" data-action="batchSetAttend">✅ 全出勤</button>
-        <button class="btn btn-outline" data-action="batchSetWorkdays">💼 仅工作日</button>
-        <div class="divider"></div>
-        <button class="btn btn-outline" data-action="undo" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
-        <div class="divider"></div>
+        <button class="btn btn-primary admin-only" data-action="openEmpModal">＋ 添加员工</button>
+        <button class="btn btn-outline admin-only" data-action="openDeptModal">🏢 部门管理</button>
+        <div class="divider admin-only"></div>
+        <button class="btn btn-brand admin-only" data-action="smartSchedule">✨ 智能排班</button>
+        <button class="btn btn-outline admin-only" data-action="batchSetAttend">✅ 全出勤</button>
+        <button class="btn btn-outline admin-only" data-action="batchSetWorkdays">💼 仅工作日</button>
+        <div class="divider admin-only"></div>
+        <button class="btn btn-outline admin-only" data-action="undo" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
+        <div class="divider admin-only"></div>
         <button class="btn btn-outline" data-action="exportExcel">📥 导出明细</button>
-        <button class="btn btn-outline" data-action="backupData" title="本地手动备份">💾 本地备份</button>
+        <button class="btn btn-outline admin-only" data-action="backupData" title="本地手动备份">💾 本地备份</button>
         <input type="file" id="restoreFile" accept=".json" style="display:none">
-        <button class="btn btn-outline" data-action="triggerRestore" title="从文件恢复">📂 强制覆盖</button>
+        <button class="btn btn-outline admin-only" data-action="triggerRestore" title="从文件恢复">📂 强制覆盖</button>
     </div>
 
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px;">
         <h3 id="mainTableTitle" style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">--年--月 排班明细</h3>
-        <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;">
+        <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;" id="tipText">
             💡 提示：按住左键滑动可批量排班，十字辅助线已开启
         </div>
     </div>
@@ -280,7 +285,7 @@
         <div class="form-group"><textarea id="noteText" rows="4" style="width:100%;" placeholder="填写说明..."></textarea></div>
         <div class="modal-footer">
             <button class="btn btn-outline" data-action="closeNoteModal">取消</button>
-            <button class="btn btn-primary" data-action="saveNote">保存</button>
+            <button class="btn btn-primary admin-only" data-action="saveNote">保存</button>
         </div>
     </div>
 </div>
@@ -309,9 +314,11 @@ class AttendanceApp {
         };
         this.API_URL = '/api'; 
 
+        // 识别角色（只读 / 管理员）
+        this.isReadOnly = this.getCookie('user_role') !== 'admin';
+
         this.state = { yearMonth: '', currentFilterDept: '全部', departments: ['默认部门'], employees: [], records: {}, cachedDays: [] };
         
-        // 核心锁控制
         this.cloudVersion = null; 
         this.isSaving = false;
         this.saveQueued = false;
@@ -327,13 +334,44 @@ class AttendanceApp {
         this.debouncedSaveAndRender = this.debounce(() => { this._saveData(); this.recalcGlobalStats(); }, 400);
     }
 
+    getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
     async init() { 
+        this.applyRoleUI();
         this.cacheDOM(); 
         this.initDate();
         await this.loadData(); 
         this.performDataHealthCheck(); 
         this.bindEvents(); 
         this.renderAll(); 
+    }
+
+    applyRoleUI() {
+        if (this.isReadOnly) {
+            document.body.classList.add('readonly-mode');
+            // 隐藏所有带有 admin-only 标记的元素
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            
+            const roleBadge = document.getElementById('roleBadge');
+            if (roleBadge) {
+                roleBadge.innerText = '👀 只读视图';
+                roleBadge.className = 'role-badge role-user';
+            }
+
+            const tipText = document.getElementById('tipText');
+            if (tipText) tipText.innerText = '💡 处于只读模式，无法修改数据';
+        } else {
+            const roleBadge = document.getElementById('roleBadge');
+            if (roleBadge) {
+                roleBadge.innerText = '⚡ 管理员模式';
+                roleBadge.className = 'role-badge role-admin';
+            }
+        }
     }
 
     cacheDOM() {
@@ -349,12 +387,14 @@ class AttendanceApp {
     }
 
     saveHistory() {
+        if (this.isReadOnly) return;
         this.historyStack.push(JSON.stringify(this.state));
         if (this.historyStack.length > 30) this.historyStack.shift();
         this.hasUnexportedChanges = true;
     }
 
     undo() {
+        if (this.isReadOnly) return;
         if (this.historyStack.length === 0) return this.showToast('没有可撤销的操作', 'warning');
         this.state = JSON.parse(this.historyStack.pop());
         this.updateDate(); this.renderAll(); this.debouncedSaveAndRender();
@@ -373,7 +413,7 @@ class AttendanceApp {
                 if (!STATUS_MAP[rec.status]) { rec.status = '出勤'; invalidFixed++; }
             }
         });
-        if (orphanedRemoved > 0 || invalidFixed > 0) this.debouncedSaveAndRender(); 
+        if ((orphanedRemoved > 0 || invalidFixed > 0) && !this.isReadOnly) this.debouncedSaveAndRender(); 
     }
 
     isDateValidForEmp(emp, dateStr) {
@@ -389,11 +429,19 @@ class AttendanceApp {
             if (!e.target.closest('#contextMenu') && !e.target.closest('.cell-status')) this.closeContextMenu();
             if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
         });
-        document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); } });
+        
+        if (!this.isReadOnly) {
+            document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); } });
+            this.DOM.mainTbody.addEventListener('mousedown', this.onDragStart.bind(this));
+            this.DOM.mainTbody.addEventListener('contextmenu', this.onContextMenu.bind(this));
+            this.DOM.mainTbody.addEventListener('input', this.handleInputChanges.bind(this));
+            this.DOM.mainTbody.addEventListener('change', this.handleSelectChanges.bind(this)); 
+        }
+
         window.addEventListener('beforeunload', (e) => { if (this.hasUnexportedChanges) { e.preventDefault(); e.returnValue = '有未导出的更改！'; } });
-        this.DOM.mainTbody.addEventListener('mousedown', this.onDragStart.bind(this));
+        
         this.DOM.mainTbody.addEventListener('mouseover', (e) => {
-            if (this.dragState.isDragging) { const cell = e.target.closest('.cell-status'); if (cell) this.selectDragCell(cell); }
+            if (this.dragState.isDragging && !this.isReadOnly) { const cell = e.target.closest('.cell-status'); if (cell) this.selectDragCell(cell); }
             const cell = e.target.closest('td.col-day');
             if (cell) {
                 const date = cell.dataset.date;
@@ -405,13 +453,11 @@ class AttendanceApp {
                 }
             } else this.clearColumnHighlight();
         });
+
         this.DOM.mainTbody.addEventListener('mouseleave', () => this.clearColumnHighlight());
         document.addEventListener('mouseup', this.onDragEnd.bind(this));
         document.addEventListener('mouseleave', this.onDragEnd.bind(this));
         window.addEventListener('blur', this.onDragEnd.bind(this));
-        this.DOM.mainTbody.addEventListener('contextmenu', this.onContextMenu.bind(this));
-        this.DOM.mainTbody.addEventListener('input', this.handleInputChanges.bind(this));
-        this.DOM.mainTbody.addEventListener('change', this.handleSelectChanges.bind(this)); 
         
         this.DOM.monthPicker.addEventListener('change', async (e) => { 
             this.state.yearMonth = e.target.value; 
@@ -433,14 +479,14 @@ class AttendanceApp {
     closeContextMenu() { this.DOM.contextMenu.style.display = 'none'; }
 
     onDragStart(e) {
-        if (e.button !== 0) return; 
+        if (this.isReadOnly || e.button !== 0) return; 
         const cell = e.target.closest('.cell-status');
         if (!cell) { this.hideQuickAction(); return; }
         this.dragState.isDragging = true; this.clearDragSelection(); this.hideQuickAction(); this.selectDragCell(cell);
     }
 
     onDragEnd(e) {
-        if (!this.dragState.isDragging) return;
+        if (!this.dragState.isDragging || this.isReadOnly) return;
         this.dragState.isDragging = false;
         if (this.dragState.selectedCells.size > 1) {
             this.DOM.quickActionBar.style.display = 'flex';
@@ -462,6 +508,7 @@ class AttendanceApp {
     quickCancel() { this.hideQuickAction(); }
     
     applyDragBatch(status) {
+        if (this.isReadOnly) return;
         this.saveHistory();
         const targetState = STATUS_MAP[status];
         let skipped = 0; const affectedRows = new Map(); 
@@ -476,6 +523,7 @@ class AttendanceApp {
     }
 
     toggleSingleCell(cell) {
+        if (this.isReadOnly) return;
         const { empId, date } = cell.dataset; const rec = this.getSafeRecord(empId, date);
         if (rec.status === '入' || rec.status === '离') return this.showToast('🔒 入职/离职状态受保护，请通过右键菜单修改', 'warning');
         this.saveHistory();
@@ -485,10 +533,8 @@ class AttendanceApp {
         this.debouncedSaveAndRender();
     }
 
-    // 智能继承上月快照逻辑
     async loadData() { 
         try {
-            // 修复 Bug：切换月份拉取数据前，先清空本地的版本锁，防止带着旧月份版本锁引发 409 误报冲突
             this.cloudVersion = null;
             this.updateSyncStatus('🟡 正在拉取当月数据...', 'var(--warning)');
             const response = await fetch(`${this.API_URL}?month=${this.state.yearMonth}`);
@@ -517,7 +563,7 @@ class AttendanceApp {
 
                     this.state.records = {}; 
                     this.cloudVersion = null; 
-                    this.debouncedSaveAndRender(); 
+                    if (!this.isReadOnly) this.debouncedSaveAndRender(); 
                     this.updateSyncStatus('🟢 已创建新月份快照');
                 } else if (cloudData.state) {
                     this.state = { ...this.state, ...cloudData.state }; 
@@ -530,13 +576,8 @@ class AttendanceApp {
             try {
                 const backup = localStorage.getItem(this.CONFIG.BACKUP_KEY);
                 if (backup) {
-                    // 修复：兼容纯 JSON 字符串存储与历史 Base64 加密存储，防止 localStorage 解析崩溃
                     let parsedState;
-                    try {
-                        parsedState = JSON.parse(backup);
-                    } catch (_) {
-                        parsedState = JSON.parse(decodeURIComponent(atob(backup)));
-                    }
+                    try { parsedState = JSON.parse(backup); } catch (_) { parsedState = JSON.parse(decodeURIComponent(atob(backup))); }
                     this.state = { ...this.state, ...parsedState };
                     this.updateSyncStatus('🔴 离线模式 (使用本地缓存)', 'var(--danger)');
                 }
@@ -544,8 +585,9 @@ class AttendanceApp {
         }
     }
 
-    // 并发保存防冲突（排队锁）
     async _saveData() { 
+        if (this.isReadOnly) return; // 只读模式不允许调用保存
+        
         if (this.isSaving) {
             this.saveQueued = true; 
             return;
@@ -560,6 +602,12 @@ class AttendanceApp {
                 method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }
             });
 
+            if (response.status === 403) {
+                this.updateSyncStatus('🔴 无编辑权限', 'var(--danger)');
+                this.showToast('❌ 保存失败：当前身份非管理员！', 'danger');
+                return;
+            }
+
             if (response.status === 409) {
                 this.updateSyncStatus('🔴 冲突：请刷新', 'var(--danger)');
                 this.showToast('⚠️ 警告：其他同事修改了排班！为防止覆盖他人数据，请立刻刷新页面！', 'danger');
@@ -570,12 +618,7 @@ class AttendanceApp {
                 const result = await response.json();
                 this.cloudVersion = result._version; 
                 this.updateSyncStatus('🟢 数据已安全存入云端');
-                // 修复：直接序列化保存纯 JSON 字符串，防止复杂的 Base64 编码溢出 5MB 限制
-                try {
-                    localStorage.setItem(this.CONFIG.BACKUP_KEY, JSON.stringify(this.state)); 
-                } catch(e) {
-                    console.warn("LocalStorage 全局容量溢出");
-                }
+                try { localStorage.setItem(this.CONFIG.BACKUP_KEY, JSON.stringify(this.state)); } catch(e) {}
             }
         } catch (e) {
             this.updateSyncStatus('🔴 网络异常', 'var(--danger)');
@@ -630,7 +673,7 @@ class AttendanceApp {
         `;
 
         if (emps.length === 0) {
-            this.DOM.mainTbody.innerHTML = `<tr><td colspan="${days.length + 5}" style="padding:80px; color:var(--text-muted); text-align:center;">暂无员工数据，请添加</td></tr>`;
+            this.DOM.mainTbody.innerHTML = `<tr><td colspan="${days.length + 5}" style="padding:80px; color:var(--text-muted); text-align:center;">暂无员工数据</td></tr>`;
             this.recalcGlobalStats(); return;
         }
 
@@ -645,10 +688,13 @@ class AttendanceApp {
                 return `<td class="col-day cell-status ${rec.note ? 'has-note' : ''}" title="${escapeHTML(rec.note)}" data-emp-id="${emp.id}" data-date="${d.fullDate}">${statObj.icon}</td>`;
             }).join('');
             
+            // 如果是只读模式，禁用输入框与选择框
+            const disabledAttr = this.isReadOnly ? 'disabled style="pointer-events:none;"' : '';
+
             return `<tr>
                 <td class="col-idx">${i + 1}</td>
-                <td class="col-name"><input class="name-input input-seamless" value="${escapeHTML(emp.name)}" data-emp-id="${emp.id}"></td>
-                <td class="col-dept"><select class="dept-select input-seamless" data-emp-id="${emp.id}">${deptOptionsHTML(emp.department)}</select></td>
+                <td class="col-name"><input class="name-input input-seamless" value="${escapeHTML(emp.name)}" data-emp-id="${emp.id}" ${disabledAttr}></td>
+                <td class="col-dept"><select class="dept-select input-seamless" data-emp-id="${emp.id}" ${disabledAttr}>${deptOptionsHTML(emp.department)}</select></td>
                 ${cellsHTML}
                 <td class="col-stat stat-attend" style="color:var(--success);">${att}</td>
                 <td class="col-stat stat-rest" style="color:var(--text-muted);">${rst}</td>
@@ -700,12 +746,14 @@ class AttendanceApp {
     prevMonth() { this.shiftMonth(-1); } nextMonth() { this.shiftMonth(1); }
 
     handleInputChanges(e) {
+        if (this.isReadOnly) return;
         if (e.target.classList.contains('name-input')) {
             const emp = this.state.employees.find(x => x.id === e.target.dataset.empId);
             if (emp && e.target.value.trim() !== '') { emp.name = e.target.value.trim(); this.debouncedSaveAndRender(); }
         }
     }
     handleSelectChanges(e) {
+        if (this.isReadOnly) return;
         if (e.target.classList.contains('dept-select')) {
             this.saveHistory(); const emp = this.state.employees.find(x => x.id === e.target.dataset.empId);
             if (emp) { emp.department = e.target.value; this.debouncedSaveAndRender(); }
@@ -713,6 +761,7 @@ class AttendanceApp {
     }
 
     smartSchedule() {
+        if (this.isReadOnly) return;
         if (!confirm("智能排班：每人每月休2天 (受保护的入职/离职记录将被跳过)。确定？")) return;
         this.saveHistory(); const emps = this.getFilteredEmps(); if (emps.length === 0) return;
         const totalDays = this.state.cachedDays.length;
@@ -754,6 +803,7 @@ class AttendanceApp {
     }
 
     _batchSet(s) {
+        if (this.isReadOnly) return;
         if (!confirm(`全员设为【${s}】？(受保护的入职/离职记录将被跳过)`)) return;
         this.saveHistory(); let skipped = 0;
         this.getFilteredEmps().forEach(emp => {
@@ -769,6 +819,7 @@ class AttendanceApp {
     }
     batchSetAttend() { this._batchSet('出勤'); }
     batchSetWorkdays() {
+        if (this.isReadOnly) return;
         this.saveHistory(); let skipped = 0;
         this.getFilteredEmps().forEach(emp => {
             this.state.cachedDays.forEach(d => {
@@ -784,6 +835,7 @@ class AttendanceApp {
     }
 
     _ctxUpdateLifeCycle(targetStatus) {
+        if (this.isReadOnly) return;
         this.saveHistory(); const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId);
         if (emp) {
             const dateStr = this.ctxTarget.dateStr;
@@ -797,6 +849,7 @@ class AttendanceApp {
     ctxSetJoin() { this._ctxUpdateLifeCycle('入'); } ctxSetLeave() { this._ctxUpdateLifeCycle('离'); }
 
     _ctxBatchUpdate(targetStatus) {
+        if (this.isReadOnly) return;
         this.saveHistory(); const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId); 
         this.state.cachedDays.forEach(d => { 
             if (this.isDateValidForEmp(emp, d.fullDate)) {
@@ -847,6 +900,7 @@ class AttendanceApp {
     }
 
     onContextMenu(e) {
+        if (this.isReadOnly) return;
         const cell = e.target.closest('.cell-status'); if (!cell) return; e.preventDefault();
         this.ctxTarget = { empId: cell.dataset.empId, dateStr: cell.dataset.date, cellElem: cell };
         const menu = this.DOM.contextMenu; menu.style.display = 'block';
@@ -857,12 +911,14 @@ class AttendanceApp {
     }
 
     ctxSetHalf() {
+        if (this.isReadOnly) return;
         this.saveHistory(); const rec = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr); rec.status = '半天'; 
         this.ctxTarget.cellElem.innerHTML = STATUS_MAP['半天'].icon; this.updateRowStatsLocally(this.ctxTarget.empId, this.ctxTarget.cellElem.closest('tr'));
         this.debouncedSaveAndRender(); this.closeContextMenu();
     }
 
     ctxMoveUp() {
+        if (this.isReadOnly) return;
         this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
         if (fIdx > 0) {
             const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx - 1].id);
@@ -871,6 +927,7 @@ class AttendanceApp {
     }
 
     ctxMoveDown() {
+        if (this.isReadOnly) return;
         this.saveHistory(); const fEmps = this.getFilteredEmps(); const fIdx = fEmps.findIndex(e => e.id === this.ctxTarget.empId);
         if (fIdx !== -1 && fIdx < fEmps.length - 1) {
             const gIdx1 = this.state.employees.findIndex(e => e.id === fEmps[fIdx].id); const gIdx2 = this.state.employees.findIndex(e => e.id === fEmps[fIdx + 1].id);
@@ -879,11 +936,13 @@ class AttendanceApp {
     }
 
     ctxAddNote() {
+        if (this.isReadOnly) return;
         document.getElementById('noteText').value = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr).note || '';
         document.getElementById('noteModal').style.display = 'flex'; this.closeContextMenu();
     }
 
     saveNote() {
+        if (this.isReadOnly) return;
         this.saveHistory(); const rec = this.getSafeRecord(this.ctxTarget.empId, this.ctxTarget.dateStr);
         rec.note = document.getElementById('noteText').value.trim();
         this.ctxTarget.cellElem.classList.toggle('has-note', !!rec.note); this.ctxTarget.cellElem.title = rec.note;
@@ -891,12 +950,14 @@ class AttendanceApp {
     }
 
     openEmpModal() {
+        if (this.isReadOnly) return;
         document.getElementById('empId').value = ''; document.getElementById('empName').value = ''; document.getElementById('empJoinDate').value = ''; document.getElementById('empLeaveDate').value = '';
         document.getElementById('empDept').innerHTML = this.state.departments.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('');
         document.getElementById('empDeleteBtn').classList.add('hidden'); document.getElementById('empModal').style.display = 'flex';
     }
 
     ctxEditEmp() {
+        if (this.isReadOnly) return;
         const emp = this.state.employees.find(e => e.id === this.ctxTarget.empId);
         document.getElementById('empId').value = emp.id; document.getElementById('empName').value = emp.name;
         document.getElementById('empDept').innerHTML = this.state.departments.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('');
@@ -909,6 +970,7 @@ class AttendanceApp {
     closeNoteModal(e) { if(e) e.preventDefault(); document.getElementById('noteModal').style.display = 'none'; }
     
     saveEmp() {
+        if (this.isReadOnly) return;
         this.saveHistory(); const id = document.getElementById('empId').value; const name = document.getElementById('empName').value.trim();
         if (!name) return this.showToast('姓名不可为空', 'warning');
         const dept = document.getElementById('empDept').value; const join = document.getElementById('empJoinDate').value; const leave = document.getElementById('empLeaveDate').value;
@@ -920,6 +982,7 @@ class AttendanceApp {
     }
 
     deleteEmp() {
+        if (this.isReadOnly) return;
         if (!confirm('确定彻底删除该员工？')) return;
         this.saveHistory(); const id = document.getElementById('empId').value;
         this.state.employees = this.state.employees.filter(e => e.id !== id);
@@ -928,6 +991,7 @@ class AttendanceApp {
     }
 
     openDeptModal() {
+        if (this.isReadOnly) return;
         document.getElementById('deptList').innerHTML = this.state.departments.map(d => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed var(--border);">
                 <span>${escapeHTML(d)}</span>
@@ -940,11 +1004,13 @@ class AttendanceApp {
     }
 
     addDept() {
+        if (this.isReadOnly) return;
         const val = document.getElementById('newDeptName').value.trim();
         if (val && !this.state.departments.includes(val)) { this.saveHistory(); this.state.departments.push(val); document.getElementById('newDeptName').value = ''; this.openDeptModal(); this.renderAll(); this.debouncedSaveAndRender(); }
     }
 
     editDept(e, el) {
+        if (this.isReadOnly) return;
         const old = el.dataset.targetdept; const n = prompt('新名称：', old);
         if (n && n.trim() !== '' && !this.state.departments.includes(n.trim())) {
             this.saveHistory(); this.state.departments[this.state.departments.indexOf(old)] = n.trim();
@@ -954,6 +1020,7 @@ class AttendanceApp {
     }
 
     deleteDept(e, el) {
+        if (this.isReadOnly) return;
         const d = el.dataset.targetdept; if (this.state.departments.length <= 1) return;
         if (confirm(`删除【${d}】？该部门员工将自动归入其他部门。`)) {
             this.saveHistory(); this.state.departments = this.state.departments.filter(x => x !== d);
@@ -963,13 +1030,15 @@ class AttendanceApp {
     }
 
     backupData() {
+        if (this.isReadOnly) return;
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(this.state)], {type:"application/json"}));
         a.download = `考勤数据备份_${this.state.yearMonth}.json`; a.click(); this.hasUnexportedChanges = false; 
     }
 
-    triggerRestore() { document.getElementById('restoreFile').click(); }
+    triggerRestore() { if (!this.isReadOnly) document.getElementById('restoreFile').click(); }
 
     restoreData(e) {
+        if (this.isReadOnly) return;
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader(); 
         r.onload = ev => {

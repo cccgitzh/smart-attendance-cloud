@@ -300,13 +300,25 @@ function toggleRole() {
     const parts = value.split(`; user_role=`);
     const currentRole = parts.length === 2 ? parts.pop().split(';').shift() : 'admin';
     
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const newToken = newRole === 'admin' ? '888888' : '123456';
-
-    document.cookie = `auth_token=${newToken}; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
-    document.cookie = `user_role=${newRole}; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
-
-    location.reload();
+    if (currentRole === 'admin') {
+        // 如果当前是管理员，点击则直接安全降级为只读用户
+        document.cookie = `auth_token=123456; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+        document.cookie = `user_role=user; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+        location.reload();
+    } else {
+        // 如果当前是只读用户，点击切换为管理员时弹出密码验证
+        const password = prompt('🔐 请输入管理员密码以切换到管理员模式：');
+        if (password === null) return; // 用户取消
+        
+        if (password === '888888') { // 预设管理员密码
+            document.cookie = `auth_token=888888; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+            document.cookie = `user_role=admin; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+            alert('✅ 验证成功，已切换至管理员模式！');
+            location.reload();
+        } else {
+            alert('❌ 密码错误，验证失败！');
+        }
+    }
 }
 
 const STATUS_MAP = {
@@ -372,16 +384,16 @@ class AttendanceApp {
             
             const roleBadge = document.getElementById('roleBadge');
             if (roleBadge) {
-                roleBadge.innerText = '👀 只读视图 (点击切换)';
+                roleBadge.innerText = '👀 只读视图 (点击登录管理员)';
                 roleBadge.className = 'role-badge role-user';
             }
 
             const tipText = document.getElementById('tipText');
-            if (tipText) tipText.innerText = '💡 处于只读模式，无法修改数据';
+            if (tipText) tipText.innerText = '💡 处于只读模式，如需修改请点击左上角切换身份';
         } else {
             const roleBadge = document.getElementById('roleBadge');
             if (roleBadge) {
-                roleBadge.innerText = '⚡ 管理员模式 (点击切换)';
+                roleBadge.innerText = '⚡ 管理员模式 (点击退出)';
                 roleBadge.className = 'role-badge role-admin';
             }
         }

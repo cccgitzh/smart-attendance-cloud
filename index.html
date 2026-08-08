@@ -31,7 +31,8 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .header-title { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;}
         .sync-status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--bg-hover); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; transition: 0.3s;}
-        .role-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .role-badge { font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; user-select: none; }
+        .role-badge:hover { opacity: 0.85; transform: scale(1.05); }
         .role-admin { color: var(--primary); background: var(--primary-light); }
         .role-user { color: var(--warning); background: #FEF3C7; }
 
@@ -146,7 +147,9 @@
 <div class="container">
     <div class="header">
         <div class="header-title">
-            🏢 智能考勤系统 Pro <span id="roleBadge" class="role-badge role-admin">Cloud</span>
+            🏢 智能考勤系统 Pro 
+            <!-- 点击此处即可一键切换管理员 / 只读用户 -->
+            <span id="roleBadge" class="role-badge role-admin" onclick="toggleRole()" title="点击切换身份（管理员 ⇄ 只读用户）">⚡ 管理员模式</span>
             <div id="syncStatus" class="sync-status" style="color: var(--success);">🟡 正在初始化云端...</div>
         </div>
         <div class="month-switcher">
@@ -293,6 +296,21 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// 一键切换管理员/只读状态的全局函数
+function toggleRole() {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; user_role=`);
+    const currentRole = parts.length === 2 ? parts.pop().split(';').shift() : 'admin';
+    
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const newToken = newRole === 'admin' ? '888888' : '123456';
+
+    document.cookie = `auth_token=${newToken}; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+    document.cookie = `user_role=${newRole}; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
+
+    location.reload();
+}
+
 const STATUS_MAP = {
     '出勤': { icon: `<div class="cell-badge badge-att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>`, att: 1, rst: 0, text: '√' },
     '休息': { icon: `<div class="cell-badge badge-rst">休</div>`, att: 0, rst: 1, text: '休' },
@@ -314,7 +332,6 @@ class AttendanceApp {
         };
         this.API_URL = '/api'; 
 
-        // 识别角色（只读 / 管理员）
         this.isReadOnly = this.getCookie('user_role') !== 'admin';
 
         this.state = { yearMonth: '', currentFilterDept: '全部', departments: ['默认部门'], employees: [], records: {}, cachedDays: [] };
@@ -354,12 +371,11 @@ class AttendanceApp {
     applyRoleUI() {
         if (this.isReadOnly) {
             document.body.classList.add('readonly-mode');
-            // 隐藏所有带有 admin-only 标记的元素
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             
             const roleBadge = document.getElementById('roleBadge');
             if (roleBadge) {
-                roleBadge.innerText = '👀 只读视图';
+                roleBadge.innerText = '👀 只读视图 (点击切换)';
                 roleBadge.className = 'role-badge role-user';
             }
 
@@ -368,7 +384,7 @@ class AttendanceApp {
         } else {
             const roleBadge = document.getElementById('roleBadge');
             if (roleBadge) {
-                roleBadge.innerText = '⚡ 管理员模式';
+                roleBadge.innerText = '⚡ 管理员模式 (点击切换)';
                 roleBadge.className = 'role-badge role-admin';
             }
         }
@@ -586,7 +602,7 @@ class AttendanceApp {
     }
 
     async _saveData() { 
-        if (this.isReadOnly) return; // 只读模式不允许调用保存
+        if (this.isReadOnly) return;
         
         if (this.isSaving) {
             this.saveQueued = true; 
@@ -688,7 +704,6 @@ class AttendanceApp {
                 return `<td class="col-day cell-status ${rec.note ? 'has-note' : ''}" title="${escapeHTML(rec.note)}" data-emp-id="${emp.id}" data-date="${d.fullDate}">${statObj.icon}</td>`;
             }).join('');
             
-            // 如果是只读模式，禁用输入框与选择框
             const disabledAttr = this.isReadOnly ? 'disabled style="pointer-events:none;"' : '';
 
             return `<tr>

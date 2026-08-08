@@ -7,7 +7,9 @@ export async function onRequest(context) {
 
   // 2. 检查访问者手里有没有“通行证”（Cookie）
   const cookies = request.headers.get("Cookie") || "";
-  const isAuth = cookies.includes(`auth_token=${SECRET_CODE}`);
+  // 修复：使用严格正则匹配 Cookie 边界，防止攻击者通过构造带类似子串的 Cookie 绕过鉴权
+  const authPattern = new RegExp(`(?:^|;\\s*)auth_token=${SECRET_CODE}(?:;|$)`);
+  const isAuth = authPattern.test(cookies);
 
   // 3. 如果已经验证过口令，直接放行，让他去访问网页或 API
   if (isAuth) {
@@ -21,11 +23,12 @@ export async function onRequest(context) {
     
     if (code === SECRET_CODE) {
       // ✅ 口令正确：给他发一张有效期 30 天的通行证（Cookie），并让他进入首页
+      // 修复：加入 Secure 与 SameSite=Lax 增强浏览器安全性，防止跨站或重定向时丢失 Cookie
       return new Response("Login Success", {
         status: 302,
         headers: {
           "Location": "/",
-          "Set-Cookie": `auth_token=${SECRET_CODE}; Path=/; HttpOnly; Max-Age=2592000`, // 30天免密
+          "Set-Cookie": `auth_token=${SECRET_CODE}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`, // 30天免密
         }
       });
     } else {

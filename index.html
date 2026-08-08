@@ -58,8 +58,8 @@
 
         .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab { padding: 6px 16px; background: var(--bg-body); color: var(--text-muted); border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; border: 1px solid transparent; }
-        .tab:hover { background: var(--primary-light); color: var(--primary); }
-        .tab.active { background: var(--primary-light); color: var(--primary); font-weight: 700; border-color: #C7D2FE;}
+        .tab:hover { opacity: 0.8; }
+        .tab.active { font-weight: 700; border-color: #C7D2FE;}
 
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; background: var(--bg-body); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); }
         .btn { padding: 8px 14px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-main); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); }
@@ -74,7 +74,6 @@
         .table-wrapper { overflow: auto; max-height: 48vh; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); position: relative; background: var(--bg-surface); }
         table { border-collapse: separate; border-spacing: 0; width: max-content; table-layout: fixed; }
         th, td { padding: 6px 4px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-surface); transition: background 0.1s; }
-        tbody tr:nth-child(even) td { background-color: #FAFAFC; }
         tbody tr:hover td { background-color: var(--primary-light) !important; }
         td.hover-col, th.hover-col { background-color: var(--primary-light) !important; }
 
@@ -119,7 +118,7 @@
         .cell-status.drag-selected .cell-badge { background: var(--primary-light); color: var(--primary); box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--primary); transform: scale(0.9); }
         .has-note::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; background: var(--warning); border-radius: 50%; z-index: 5;}
         .input-seamless { width: 100%; border: none; background: transparent; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-main); padding: 4px; outline: none; border-radius: 4px;}
-        .input-seamless:focus { background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--primary); }
+        .input-seamless:focus { background: #FFF !important; box-shadow: inset 0 0 0 2px var(--primary); }
 
         #quickActionBar { position: fixed; background: #1E293B; padding: 6px; border-radius: 8px; box-shadow: var(--shadow-float); display: none; gap: 6px; z-index: 9999; transform: translate(-50%, -10px); border: 1px solid rgba(255,255,255,0.1); }
         #quickActionBar button { background: transparent; border: none; color: #FFF; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.15s; }
@@ -195,6 +194,7 @@
     <div class="toolbar">
         <button class="btn btn-primary admin-only" data-action="openEmpModal">＋ 添加员工</button>
         <button class="btn btn-outline admin-only" data-action="openDeptModal">🏢 部门管理</button>
+        <button class="btn btn-outline admin-only" data-action="cleanResigned" style="color: var(--danger); border-color: #FCA5A5; background: #FEF2F2;" title="彻底清理离职日期早于本月的历史离职员工">🗑️ 强制清理离职</button>
         <div class="divider admin-only"></div>
         <button class="btn btn-brand admin-only" data-action="smartSchedule">✨ 智能排班</button>
         <button class="btn btn-outline admin-only" data-action="batchSetAttend">✅ 全出勤</button>
@@ -211,7 +211,7 @@
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px;">
         <h3 id="mainTableTitle" style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">--年--月 排班明细</h3>
         <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;" id="tipText">
-            💡 提示：按住左键滑动可批量排班，十字辅助线已开启
+            💡 提示：按住左键滑动可批量排班，部门标签自带色彩区分与自动排序
         </div>
     </div>
 
@@ -232,8 +232,8 @@
 </div>
 
 <div id="contextMenu">
-    <div data-action="ctxMoveUp">⬆️ 上移一名</div>
-    <div data-action="ctxMoveDown">⬇️ 下移一名</div>
+    <div data-action="ctxMoveUp">⬆️ 组内上移一名</div>
+    <div data-action="ctxMoveDown">⬇️ 组内下移一名</div>
     <div style="height: 1px; background: var(--border-light); margin: 4px 0;"></div>
     <div data-action="ctxAddNote">📝 单日备注说明</div>
     <div data-action="ctxSetHalf">🌗 设为休息半天(0.5)</div>
@@ -258,7 +258,7 @@
             <div class="form-group" style="flex:1;"><label>离职日期</label><input type="date" id="empLeaveDate"></div>
         </div>
         <div class="modal-footer" style="justify-content: space-between;">
-            <button class="btn btn-outline" style="color: var(--danger); border-color: transparent;" id="empDeleteBtn" data-action="deleteEmp">彻底删除</button>
+            <button class="btn btn-outline" style="color: var(--danger); border-color: transparent;" id="empDeleteBtn" data-action="deleteEmp">彻底删除该员工</button>
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-outline" data-action="closeEmpModal">取消</button>
                 <button class="btn btn-primary" data-action="saveEmp">确认保存</button>
@@ -301,16 +301,14 @@ function toggleRole() {
     const currentRole = parts.length === 2 ? parts.pop().split(';').shift() : 'admin';
     
     if (currentRole === 'admin') {
-        // 如果当前是管理员，点击则直接安全降级为只读用户
         document.cookie = `auth_token=123456; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
         document.cookie = `user_role=user; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
         location.reload();
     } else {
-        // 如果当前是只读用户，点击切换为管理员时弹出密码验证
         const password = prompt('🔐 请输入管理员密码以切换到管理员模式：');
-        if (password === null) return; // 用户取消
+        if (password === null) return; 
         
-        if (password === '888888') { // 预设管理员密码
+        if (password === '888888') { 
             document.cookie = `auth_token=888888; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
             document.cookie = `user_role=admin; Path=/; Secure; SameSite=Lax; Max-Age=2592000`;
             alert('✅ 验证成功，已切换至管理员模式！');
@@ -328,6 +326,19 @@ const STATUS_MAP = {
     '入':   { icon: `<div class="cell-badge badge-join">入</div>`, att: 1, rst: 0, text: '入' },
     '离':   { icon: `<div class="cell-badge badge-leave">离</div>`, att: 0, rst: 0, text: '离' } 
 };
+
+const DEPT_COLORS = [
+    { bg: '#EFF6FF', text: '#1D4ED8' }, 
+    { bg: '#F0FDF4', text: '#15803D' }, 
+    { bg: '#FFFBEB', text: '#B45309' }, 
+    { bg: '#FEF2F2', text: '#B91C1C' }, 
+    { bg: '#F5F3FF', text: '#6D28D9' }, 
+    { bg: '#ECFEFF', text: '#0E7490' }, 
+    { bg: '#FDF4FF', text: '#A21CAF' }, 
+    { bg: '#FFF7ED', text: '#C2410C' }, 
+    { bg: '#F0FDFA', text: '#0F766E' }, 
+    { bg: '#F8FAFC', text: '#334155' }  
+];
 
 const escapeHTML = (str) => {
     if (!str) return '';
@@ -387,15 +398,6 @@ class AttendanceApp {
                 roleBadge.innerText = '👀 只读视图 (点击登录管理员)';
                 roleBadge.className = 'role-badge role-user';
             }
-
-            const tipText = document.getElementById('tipText');
-            if (tipText) tipText.innerText = '💡 处于只读模式，如需修改请点击左上角切换身份';
-        } else {
-            const roleBadge = document.getElementById('roleBadge');
-            if (roleBadge) {
-                roleBadge.innerText = '⚡ 管理员模式 (点击退出)';
-                roleBadge.className = 'role-badge role-admin';
-            }
         }
     }
 
@@ -409,6 +411,12 @@ class AttendanceApp {
             this.DOM.syncStatus.innerText = text;
             this.DOM.syncStatus.style.color = color;
         }
+    }
+
+    getDeptColorStyle(deptName) {
+        const idx = this.state.departments.indexOf(deptName);
+        const c = idx >= 0 ? DEPT_COLORS[idx % DEPT_COLORS.length] : DEPT_COLORS[DEPT_COLORS.length - 1];
+        return `background-color:${c.bg}; color:${c.text}; font-weight:600;`;
     }
 
     saveHistory() {
@@ -695,7 +703,17 @@ class AttendanceApp {
         return this.state.records[key];
     }
 
-    getFilteredEmps() { return this.state.employees.filter(e => this.state.currentFilterDept === '全部' || e.department === this.state.currentFilterDept); }
+    getFilteredEmps() { 
+        // 自动归类和排序：根据部门在部门数组中的索引值排序，从而实现按部门分组
+        let emps = this.state.employees.filter(e => this.state.currentFilterDept === '全部' || e.department === this.state.currentFilterDept); 
+        return emps.sort((a, b) => {
+            const idxA = this.state.departments.indexOf(a.department);
+            const idxB = this.state.departments.indexOf(b.department);
+            if (idxA !== idxB) return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            // 同部门时按姓名拼音排序，保持一致性
+            return a.name.localeCompare(b.name, 'zh');
+        });
+    }
 
     renderAll() {
         const currentYearStr = this.state.yearMonth.replace('-', '年');
@@ -703,8 +721,13 @@ class AttendanceApp {
         this.DOM.summaryTitle.innerText = `${currentYearStr}月 个人考勤汇总`;
         this.DOM.mainTableTitle.innerText = `${currentYearStr}月 排班明细`;
         
-        this.DOM.deptTabs.innerHTML = `<div class="tab ${this.state.currentFilterDept === '全部' ? 'active' : ''}" data-action="filterDept" data-dept="全部">全局视图</div>` + 
-            this.state.departments.map(d => `<div class="tab ${this.state.currentFilterDept === d ? 'active' : ''}" data-action="filterDept" data-dept="${escapeHTML(d)}">${escapeHTML(d)}</div>`).join('');
+        // 渲染彩色部门标签
+        this.DOM.deptTabs.innerHTML = `<div class="tab ${this.state.currentFilterDept === '全部' ? 'active' : ''}" data-action="filterDept" data-dept="全部" style="${this.state.currentFilterDept === '全部' ? 'background:#1E293B;color:#fff;' : ''}">全局视图</div>` + 
+            this.state.departments.map(d => {
+                const isActive = this.state.currentFilterDept === d;
+                const style = isActive ? this.getDeptColorStyle(d) + `border-color: currentColor;` : '';
+                return `<div class="tab ${isActive ? 'active' : ''}" data-action="filterDept" data-dept="${escapeHTML(d)}" style="${style}">${escapeHTML(d)}</div>`;
+            }).join('');
 
         const emps = this.getFilteredEmps(); const days = this.state.cachedDays;
         
@@ -730,11 +753,12 @@ class AttendanceApp {
             }).join('');
             
             const disabledAttr = this.isReadOnly ? 'disabled style="pointer-events:none;"' : '';
+            const deptStyle = this.getDeptColorStyle(emp.department);
 
             return `<tr>
                 <td class="col-idx">${i + 1}</td>
                 <td class="col-name"><input class="name-input input-seamless" value="${escapeHTML(emp.name)}" data-emp-id="${emp.id}" ${disabledAttr}></td>
-                <td class="col-dept"><select class="dept-select input-seamless" data-emp-id="${emp.id}" ${disabledAttr}>${deptOptionsHTML(emp.department)}</select></td>
+                <td class="col-dept"><select class="dept-select input-seamless" data-emp-id="${emp.id}" style="${deptStyle}" ${disabledAttr}>${deptOptionsHTML(emp.department)}</select></td>
                 ${cellsHTML}
                 <td class="col-stat stat-attend" style="color:var(--success);">${att}</td>
                 <td class="col-stat stat-rest" style="color:var(--text-muted);">${rst}</td>
@@ -796,7 +820,7 @@ class AttendanceApp {
         if (this.isReadOnly) return;
         if (e.target.classList.contains('dept-select')) {
             this.saveHistory(); const emp = this.state.employees.find(x => x.id === e.target.dataset.empId);
-            if (emp) { emp.department = e.target.value; this.debouncedSaveAndRender(); }
+            if (emp) { emp.department = e.target.value; this.renderAll(); this.debouncedSaveAndRender(); }
         }
     }
 
@@ -1023,11 +1047,42 @@ class AttendanceApp {
 
     deleteEmp() {
         if (this.isReadOnly) return;
-        if (!confirm('确定彻底删除该员工？')) return;
+        if (!confirm('确定彻底删除该员工及其所有考勤记录？')) return;
         this.saveHistory(); const id = document.getElementById('empId').value;
         this.state.employees = this.state.employees.filter(e => e.id !== id);
         Object.keys(this.state.records).forEach(k => { if (k.startsWith(id + '_')) delete this.state.records[k]; });
         this.closeEmpModal(); this.renderAll(); this.debouncedSaveAndRender();
+        this.showToast('✅ 员工已被彻底删除');
+    }
+
+    // 新增强制清理历史离职员工的方法
+    cleanResigned() {
+        if (this.isReadOnly) return;
+        if (!confirm('⚠️ 警告：此操作将强制清理【离职日期早于当前月度】的所有历史离职员工及其数据，防止继续继承到下个月。\n\n是否确认执行？')) return;
+        
+        this.saveHistory();
+        const currentMonthStart = this.state.yearMonth + '-01';
+        let removedCount = 0;
+        
+        this.state.employees = this.state.employees.filter(emp => {
+            if (emp.leaveDate && emp.leaveDate < currentMonthStart) {
+                // 清理对应的全部考勤记录
+                Object.keys(this.state.records).forEach(key => {
+                    if (key.startsWith(emp.id + '_')) delete this.state.records[key];
+                });
+                removedCount++;
+                return false;
+            }
+            return true;
+        });
+
+        if (removedCount > 0) {
+            this.renderAll();
+            this.debouncedSaveAndRender();
+            this.showToast(`✅ 成功清理了 ${removedCount} 名历史残留的离职员工`);
+        } else {
+            this.showToast('当前花名册中没有需要清理的历史离职员工', 'warning');
+        }
     }
 
     openDeptModal() {
